@@ -1,0 +1,245 @@
+#!/bin/bash
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2013 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+binpath=$(dirname $(readlink -f ${0}))
+
+if [ ! -f "${binpath}/utils" ]
+then
+    echo "ERROR : unable to load utils [${binpath}/utils]"
+    exit -1
+else
+    source "${binpath}/utils"
+fi
+
+isroot
+if [ $? -eq 1 ]
+then
+    echo "DEBUG : ok"
+else
+    echo "ERROR : This must be run as root"
+    exit 0
+fi
+
+datpath=$(dirname ${binpath})/dat
+datfile=${datpath}/live-address.dat
+if [ ! -f "${datfile}" ]
+then
+    echo "ERROR : unable to find data file [${datfile}]"
+    exit -1
+fi
+
+basepool='raid-base'
+livepool='raid-live'
+isopool='raid-iso'
+
+#
+# Select the node name.
+echo ""
+echo "Available machine names"
+nodename=''
+hostname=$(hostname -s)
+nodenames=($("${binpath}/netinfo" "${hostname}"))
+for ((index = 0 ; index < ${#nodenames[@]} ; index++))
+do
+    echo "[$[index + 1]] [${nodenames[$index]}]"
+done
+
+nodename=''
+while [ "${nodename}" == '' ]
+do
+    read -p "Select machine name : " response
+    if [ "${response}" != '' ]
+    then
+        words=(${response})
+        (( index = ${words[0]}  ))
+        (( limit = ${#nodenames[@]} ))
+        if (( (index > 0) && (index <= limit) ))
+        then
+            nodename=${nodenames[$[index-1]]}
+        fi
+    fi
+done
+
+#
+# Select the base volume.
+tempdat=$(mktemp)
+virsh vol-list --pool "${basepool}" > "${tempdat}"
+readarray -t -s 2 lines < "${tempdat}"
+basepaths=()
+basenames=()
+for ((index = 0 ; index < ${#lines[@]} ; index++))
+do
+    line=${lines[$[index]]}
+    if [ -n "${line}" ]
+    then
+        words=(${line})
+        basenames[$index]=${words[0]}
+        basepaths[$index]=${words[1]}
+    fi
+done
+
+echo ""
+echo "Available base images"
+for ((index = 0 ; index < ${#basenames[@]} ; index++))
+do
+    echo "[$[index + 1]] [${basenames[$index]}]"
+done
+
+basepath=''
+basename=''
+while [ "${basepath}" == '' ]
+do
+    read -p "Select base image : " response
+    if [ "${response}" != '' ]
+    then
+        words=(${response})
+        (( index = ${words[0]} ))
+        (( limit = ${#basenames[@]} ))
+        if (( (index > 0) && (index <= limit) ))
+        then
+            basepath=${basepaths[$[index-1]]}
+            basename=${basenames[$[index-1]]}
+        fi
+    fi
+done
+
+volsize=8G
+volname=${nodename:?}.qcow
+
+echo ""
+echo "INFO : Node name [${nodename:?}]"
+echo "INFO : Base name [${basename:?}]"
+echo "INFO : Base path [${basepath:?}]"
+
+echo "INFO : Vol name [${volname:?}]"
+echo "INFO : Vol size [${volsize:?}]"
+
+
+echo ""
+echo "INFO : MAC  [$(${binpath}/netinfo ${nodename:?} 'mac')]"
+echo "INFO : IPV4 [$(${binpath}/netinfo ${nodename:?} 'ipv4')]"
+echo "INFO : IPV6 [$(${binpath}/netinfo ${nodename:?} 'ipv6')]"
+
+confirm "Create virtual machine"
+if [ $? -ne 0 ]
+then
+    echo "EXIT : Cancelled"
+    exit 0
+fi
+
+#
+# Check for existing VM.
+prevuuid="$(virsh domuuid ${nodename:?} 2>/dev/null)"
+if [ -n "${prevuuid}" ]
+then
+    echo ""
+    echo "Found existing virtual machine [${nodename:?}]"
+    confirm "Delete existing virtual machine"
+    if [ $? -eq 0 ]
+    then
+        #echo "Storage connected to [${name}]"
+        #virsh domblklist "${uuid}" --details
+#
+#        echo "Storage connected to [${nodename}]"
+#        tempdat=$(mktemp)
+#        virsh domblklist "${uuid}" --details > "${tempdat}"
+#        readarray -t -s 2 lines < "${tempdat}"
+#        for line in "${lines[@]}"
+#        do
+#            if [ -n "${line}" ]
+#            then
+#                words=(${line})
+#                type=${words[0]}
+#                device=${words[1]}
+#                target=${words[2]}
+#                source=${words[3]}
+#
+#                echo "Volume [${type}][${device}][${target}][${source}]"
+#
+#            fi
+#        done
+#
+        confirm "Delete associated storage"
+        if [ $? -eq 0 ]
+        then
+            virsh destroy  "${prevuuid:?}"
+            virsh undefine "${prevuuid:?}" --remove-all-storage
+            #echo "DEBUG : Delete VM [${nodename:?}][${prevuuid:?}] with storage"
+        else
+            virsh destroy  "${prevuuid:?}"
+            virsh undefine "${prevuuid:?}"
+            #echo "DEBUG : Delete VM [${nodename:?}][${prevuuid:?}]"
+        fi
+    else
+        echo "EXIT : Found existing virtual machine [${nodename:?}]"
+        exit 0
+    fi
+fi
+
+#
+# Check for existing volume.
+prevuuid="$(virsh vol-key "${volname:?}" --pool "${livepool:?}" 2>/dev/null)"
+if [ -n "${prevuuid}" ]
+then
+    echo ""
+    echo "Found existing storage voume [${volname:?}]"
+    confirm "Delete storage voume"
+    if [ $? -eq 0 ]
+    then
+        virsh vol-delete "${volname:?}" --pool "${livepool:?}"
+    else
+        echo "EXIT : Found existing storage volume [${volname:?}]"
+        exit 0
+    fi
+fi
+
+#
+# Create a new volume, backed by the base image.
+virsh vol-create-as \
+    "${livepool:?}" \
+    "${volname:?}" \
+    "${volsize:?}" \
+    --allocation 0 \
+    --format 'qcow2' \
+    --backing-vol "${basepath:?}" \
+    --backing-vol-format 'qcow2'
+
+#virsh vol-dumpxml --pool "${livepool:?}" "${volname:?}"
+virsh vol-info --pool "${livepool:?}" "${volname:?}"
+
+#
+# Create a new virtual machine.
+volpath=$(virsh vol-path --pool "${livepool:?}" "${volname:?}")
+sed '
+    s|<name>.*</name>|<name>'"${nodename:?}"'</name>|
+    s|<uuid>.*</uuid>|<uuid>'"$(uuidgen)"'</uuid>|
+    s|<source file='\''.*'\''/>|<source file='\'''"${volpath}"''\''/>|
+    s|<mac address='\''.*'\''/>|<mac address='\'''"$(${binpath}/netinfo ${nodename:?} 'mac')"''\''/>|
+    ' "${datpath}/base-vm.xml" > "${tempdir}/${nodename:?}.xml"
+
+# Start a new (unmanaged) instance
+# virsh create guest.xml
+
+# Define a new (managed) instance
+virsh define "${tempdir}/${nodename:?}.xml"
+virsh start  "${nodename:?}"
+
+

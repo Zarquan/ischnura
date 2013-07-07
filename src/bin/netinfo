@@ -1,0 +1,70 @@
+#!/bin/bash
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2013 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+binpath=$(dirname $(readlink -f ${0}))
+
+if [ ! -f "${binpath}/utils" ]
+then
+    echo "ERROR : unable to load utils [${binpath}/utils]"
+    exit -1
+else
+    source "${binpath}/utils"
+fi
+
+word=${1:?}
+what=${2:-'name'}
+type=${3:-'live'}
+
+datpath=$(dirname ${binpath})/dat
+datfile=${datpath}/${type:?}-address.dat
+if [ ! -f "${datfile}" ]
+then
+    echo "ERROR : unable to find data file [${datfile}]"
+    exit -1
+fi
+
+
+case $what in
+
+    host)
+        grep "\<${word}\>" "${datfile}" | tabify | cut -f 1
+        ;;        
+
+    name)
+        grep "\<${word}\>" "${datfile}" | tabify | cut -f 2
+        ;;        
+
+    mac)
+        grep "\<${word}\>" "${datfile}" | tabify | cut -f 3
+        ;;        
+
+    ipv4)
+        grep "\<${word}\>" "${datfile}" | tabify | cut -f 4
+        ;;        
+
+    ipv6)
+        grep "\<${word}\>" "${datfile}" | tabify | cut -f 5
+        ;;        
+
+    *)
+        ;;
+esac
+
