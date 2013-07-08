@@ -29,8 +29,7 @@ else
     source "${binpath}/utils"
 fi
 
-isroot
-if [ $? -eq 1 ]
+if isroot
 then
     echo "DEBUG : ok"
 else
@@ -46,12 +45,11 @@ then
     exit -1
 fi
 
-basepool='raid-base'
-livepool='raid-live'
-isopool='raid-iso'
+basepool='base'
+livepool='live'
 
 #
-# Select the node name.
+# Select the machine name.
 echo ""
 echo "Available machine names"
 nodename=''
@@ -59,15 +57,17 @@ hostname=$(hostname -s)
 nodenames=($("${binpath}/netinfo" "${hostname}"))
 for ((index = 0 ; index < ${#nodenames[@]} ; index++))
 do
-    echo "[$[index + 1]] [${nodenames[$index]}]"
+    echo "[$[index + 1]] ${nodenames[$index]}"
 done
 
 nodename=''
 while [ "${nodename}" == '' ]
 do
-    read -p "Select machine name : " response
-    if [ "${response}" != '' ]
+    read -p "Select machine name (1) " response
+    if [ "${response}" == '' ]
     then
+        nodename=${nodenames[0]}
+    else
         words=(${response})
         (( index = ${words[0]}  ))
         (( limit = ${#nodenames[@]} ))
@@ -100,16 +100,19 @@ echo ""
 echo "Available base images"
 for ((index = 0 ; index < ${#basenames[@]} ; index++))
 do
-    echo "[$[index + 1]] [${basenames[$index]}]"
+    echo "[$[index + 1]] ${basenames[$index]}"
 done
 
 basepath=''
 basename=''
 while [ "${basepath}" == '' ]
 do
-    read -p "Select base image : " response
-    if [ "${response}" != '' ]
+    read -p "Select base image (1) " response
+    if [ "${response}" == '' ]
     then
+        basepath=${basepaths[0]}
+        basename=${basenames[0]}
+    else
         words=(${response})
         (( index = ${words[0]} ))
         (( limit = ${#basenames[@]} ))
@@ -127,16 +130,16 @@ volname=${nodename:?}.qcow
 echo ""
 echo "INFO : Node name [${nodename:?}]"
 echo "INFO : Base name [${basename:?}]"
-echo "INFO : Base path [${basepath:?}]"
-
-echo "INFO : Vol name [${volname:?}]"
-echo "INFO : Vol size [${volsize:?}]"
-
-
+#echo "INFO : Base path [${basepath:?}]"
+echo "INFO : Disc name [${volname:?}]"
+echo "INFO : Disc size [${volsize:?}]"
 echo ""
-echo "INFO : MAC  [$(${binpath}/netinfo ${nodename:?} 'mac')]"
-echo "INFO : IPV4 [$(${binpath}/netinfo ${nodename:?} 'ipv4')]"
-echo "INFO : IPV6 [$(${binpath}/netinfo ${nodename:?} 'ipv6')]"
+
+
+#echo ""
+#echo "INFO : MAC  [$(${binpath}/netinfo ${nodename:?} 'mac')]"
+#echo "INFO : IPV4 [$(${binpath}/netinfo ${nodename:?} 'ipv4')]"
+#echo "INFO : IPV6 [$(${binpath}/netinfo ${nodename:?} 'ipv6')]"
 
 confirm "Create virtual machine"
 if [ $? -ne 0 ]
@@ -177,16 +180,17 @@ then
 #            fi
 #        done
 #
+
+# TODO check if it is running.
+        virsh destroy  "${prevuuid:?}"
+
+
         confirm "Delete associated storage"
         if [ $? -eq 0 ]
         then
-            virsh destroy  "${prevuuid:?}"
             virsh undefine "${prevuuid:?}" --remove-all-storage
-            #echo "DEBUG : Delete VM [${nodename:?}][${prevuuid:?}] with storage"
         else
-            virsh destroy  "${prevuuid:?}"
             virsh undefine "${prevuuid:?}"
-            #echo "DEBUG : Delete VM [${nodename:?}][${prevuuid:?}]"
         fi
     else
         echo "EXIT : Found existing virtual machine [${nodename:?}]"

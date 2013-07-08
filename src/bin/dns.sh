@@ -31,6 +31,7 @@ fi
 
 type=${1:-'live'}
 
+domain=virtual.metagrid.co.uk.
 
 datpath=$(dirname ${binpath})/dat
 datfile=${datpath}/${type:?}-address.dat
@@ -86,7 +87,6 @@ done
 echo ""
 echo ""
 
-
 echo ""
 echo ""
 for name in $(cat "${datfile}" | tabify | cut -f 2)
@@ -100,13 +100,37 @@ do
 
         ipv7=$(echo "${ipv4}" | cut -d '.' -f 4)
     
-        domain=virtual.metagrid.co.uk.
         printf "\n%-2s    IN    PTR    %s.%s" ${ipv7} ${name} ${domain}
     fi
 
 done
 echo ""
 echo ""
+
+
+echo ""
+echo ""
+for name in $(cat "${datfile}" | tabify | cut -f 2)
+do
+
+    if [ "${name}" != '' ]
+    then
+        dhcp=$(${binpath}/netinfo ${name:?} 'mac'  "${type:?}")
+        ipv4=$(${binpath}/netinfo ${name:?} 'ipv4' "${type:?}")
+        ipv6=$(${binpath}/netinfo ${name:?} 'ipv6' "${type:?}")
+
+        printf "\n"
+        printf "\n    host %s {" ${name}
+        printf "\n        hardware ethernet %s ;" ${dhcp}
+        printf "\n        fixed-address %s.%s ;" ${name} ${domain}
+        printf "\n        }"
+
+    fi
+
+done
+echo ""
+echo ""
+
 
 
 
