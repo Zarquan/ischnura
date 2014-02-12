@@ -1,0 +1,314 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2014 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Most if not all of this is already available using virt-builder.
+# http://libguestfs.org/download/builder/README
+#
+# Some of this is available using virt-sysprep
+# http://libguestfs.org/virt-sysprep.1.html
+#
+
+#---------------------------------------------------------------------
+# Create the initial VM.
+#[root@kvm-server] 
+
+    Manual install of minimal CentOS.
+    MAC 52:54:00:00:01:05
+
+    Bare ext4 partition at /    
+    No swap partition.
+
+#---------------------------------------------------------------------
+# Check the image alignment.
+# http://libguestfs.org/virt-alignment-scan.1.html
+#[root@kvm-server] 
+
+    vmdomain=test-04
+    virt-alignment-scan -d "${vmdomain:?}"
+
+        /dev/sda2    525336576         1024K   ok
+
+#---------------------------------------------------------------------
+# Mount the virtual disc.
+#[root@kvm-server] 
+
+    vmdomain=test-04
+    vmmount=$(mktemp --directory)
+
+    guestmount --domain "${vmdomain:?}" --inspector --rw --selinux "${vmmount:?}"
+
+    ls -al "${vmmount:?}"
+
+#---------------------------------------------------------------------
+# Configure the virtual machine.
+#
+
+#
+# Clean the eth0 interface config.
+#[root@kvm-server] 
+
+    cat "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+    sed -i '
+        /^UUID/d
+        /^NM_CONTROLLED/d
+        /^HWADDR/d
+        ' "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+
+#
+# Configure eth0 interface to start on boot.
+#[root@kvm-server] 
+
+    cat "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+    sed -i '
+        s/^ONBOOT=.*/ONBOOT=yes/
+        ' "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+
+#
+# Delete the persistent-net rule for eth0.
+#[root@kvm-server] 
+
+    cat   "${vmmount:?}/etc/udev/rules.d/70-persistent-net.rules"
+    rm -f "${vmmount:?}/etc/udev/rules.d/70-persistent-net.rules"
+
+#
+# Remove hardcoded hostname.
+#[root@kvm-server] 
+
+    cat "${vmmount:?}/etc/sysconfig/network"
+    sed -i '
+        /^HOSTNAME/d
+        ' "${vmmount:?}/etc/sysconfig/network"
+
+#
+# Add our ssh keys.
+#[root@kvm-server] 
+
+    if [ ! -e "${vmmount:?}/root/.ssh" ]
+    then
+        mkdir "${vmmount:?}/root/.ssh"
+    fi
+
+    pushd "${vmmount:?}/root/.ssh"
+
+        if [ ! -e 'keys' ]
+        then
+            mkdir 'keys'
+        fi
+        pushd 'keys'
+            wget 'http://data.metagrid.co.uk/sshkeys/zarquan.metagrid.co.uk.pub'
+            wget 'http://data.metagrid.co.uk/sshkeys/jenifer.metagrid.co.uk.pub'
+        popd
+
+        for keyfile in $(find 'keys' -name '*.pub')
+        do
+            echo "${keyfile:?}" 
+            cat  "${keyfile:?}" >> 'authorized_keys'
+        done
+
+    popd
+    
+    chown root:root   "${vmmount:?}/root/.ssh"
+    chmod g=,o=,u=rwx "${vmmount:?}/root/.ssh"
+
+    #restorecon -R -v  "${vmmount:?}/root/.ssh"
+
+#
+# Disable password login.
+#[root@kvm-server] 
+
+    sed -i '
+        s/^PasswordAuthentication .*/PasswordAuthentication no/
+        ' "${vmmount:?}/etc/ssh/sshd_config"
+
+#
+# Randomise the root password.
+# WARN - This doesn't actually set the password to the right value.
+# It probably is random, but not what we expect it to be.
+#[root@kvm-server] 
+
+    rootpass=$(pwgen 20 1 | sha512sum | cut --delimiter ' ' --fields 1)
+
+    sed -i '
+        /^root:/ {
+            s/^root:\([^:]*\):\(.*\)/root:$6$'${rootpass:?}':\2/
+            }
+        ' "${vmmount:?}/etc/shadow"
+
+#
+# Trigger SELinux rebuild on boot.
+#[root@kvm-server] 
+
+    touch "${vmmount:?}/.autorelabel"
+
+#---------------------------------------------------------------------
+# Unmount the virtual disc.
+#[root@kvm-server] 
+
+    fusermount -u "${vmmount:?}"
+    #guestunmount "${vmmount:?}"
+
+# -----------------------------------------
+# Sparsify the image file.
+#[root@kvm-server] 
+
+    #
+    # Fix for lvresize bug (same size fails)
+    # https://bugzilla.redhat.com/show_bug.cgi?id=834712
+    # --ignore ubuntu-base
+
+    vmdomain=test-04
+    vmsource=$(virsh domblklist "${vmdomain:?}" | sed -n 's/^vda[ ]*\([^ ]*\)/\1/p')
+    vmsparse=$(mktemp)
+
+    virt-sparsify \
+        --compress \
+        --convert qcow2 \
+        --ignore ubuntu-base \
+        "${vmsource:?}" \
+        "${vmsparse:?}"
+
+    ls -alh "${vmsource:?}"
+    ls -alh "${vmsparse:?}"
+
+# -----------------------------------------
+# Install our sparse image.
+#[root@kvm-server] 
+
+    volpool=base
+    volname=centos-65-base-20140211
+    volfile=${volname:?}.qcow
+
+    virsh vol-delete --pool "${volpool:?}" "${volfile:?}"
+    virsh vol-create-as "${volpool:?}" "${volfile:?}" 8GiB --allocation 0 --format qcow2
+    
+    virsh vol-upload --pool "${volpool:?}" "${volfile:?}" "${vmsparse:?}"
+    virsh vol-info   --pool "${volpool:?}" "${volfile:?}"
+    virsh vol-path   --pool "${volpool:?}" "${volfile:?}"
+    
+# -----------------------------------------
+# Create a sparse tar file and upload it to our repository.
+#[root@kvm-server] 
+
+    imgfile=${volfile:?}
+    tarfile=${volname:?}.tar.gz
+    basedir=/var/local/projects/ischnura/base
+    
+    tempdir=$(mktemp --directory)
+    pushd "${tempdir:?}"
+
+        ln "${vmsparse:?}" "${imgfile:?}"
+
+        tar \
+            --gzip \
+            --create \
+            --sparse \
+            --verbose \
+            --file "${basedir:?}/${tarfile:?}" \
+            "${imgfile:?}"
+
+    popd
+    rm -r "${tempdir:?}"
+
+    rsync \
+        --recursive --copy-links --checksum \
+        --stats --human-readable --progress \
+        "${basedir:?}/" \
+        data.metagrid.co.uk:/var/local/websites/data/ischnura/base
+
+
+# -----------------------------------------
+# Tidy up ...
+#[root@kvm-server] 
+
+    virsh undefine --remove-all-storage "${vmdomain:?}"
+    rmdir "${vmmount:?}"
+
+# -----------------------------------------
+# Try using our new image ...
+#[root@kvm-server] 
+
+    ischnura-createvm
+
+        [1] nu
+        [2] xi
+        ....
+        Select machine name (1) 1
+
+        Available base images
+        [1] centos-63-base-20130106.qcow
+        [2] centos-65-base-20140211.qcow
+        ....
+        Select base image (1) 2 
+
+        INFO : Node name [nu]
+        INFO : Base name [centos-65-base-20140211.qcow]
+        INFO : Disc name [nu.qcow]
+        INFO : Disc size [8G]
+        ....
+
+# -----------------------------------------
+# Configure our guest vm. 
+#[root@kvm-guest] 
+
+#
+# Install EPEL and ELREPO repositories.
+# https://fedoraproject.org/wiki/EPEL
+#[root@kvm-guest] 
+
+    #
+    # Install the EPEL repository
+    yum -y localinstall --nogpgcheck \
+        'https://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm'
+
+    #
+    # Install the ELREPO repository
+    yum localinstall -y --nogpgcheck \
+        'http://elrepo.org/elrepo-release-6-5.el6.elrepo.noarch.rpm'
+
+    #
+    # Install RPM fusion repository.
+    # http://rpmfusion.org/Configuration
+    # yum -y localinstall --nogpgcheck 'http://download1.rpmfusion.org/free/el/updates/6/x86_64/rpmfusion-free-release-6-1.noarch.rpm'
+    # yum -y localinstall --nogpgcheck 'http://download1.rpmfusion.org/nonfree/el/updates/6/x86_64/rpmfusion-nonfree-release-6-1.noarch.rpm'
+
+#
+# Update the system.
+#[root@kvm-guest] 
+
+    yum -y update
+
+#
+# Install Puppet client.
+#[root@kvm-guest] 
+
+    yum -y localinstall --nogpgcheck 'https://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-10.noarch.rpm'
+
+    yum -y install puppet 
+    
+    #
+    # Use Puppet to enable the Puppet service
+    # http://docs.puppetlabs.com/guides/installation.html#post-install
+    # chkconfig puppet on 
+    puppet resource service puppet ensure=running enable=true
+
+

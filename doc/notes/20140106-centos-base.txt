@@ -1,0 +1,173 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2014 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#
+# Create a new CentOS base image
+#
+
+#---------------------------------------------------------------------
+# Add the VM data.
+#[user@desktop]
+
+    ISCHNURA_HOME=/var/local/projects/ischnura/git/ischnura-kvm
+
+    pushd ${ISCHNURA_HOME:?}
+
+        vi src/dat/base-address.dat
+
+        +   base    centos-65   52:54:00:00:01:05   10.5.1.5    2001:08b0:be72:d4ea:5054:00ff:fe00:0105
+        +   base    debian-73   52:54:00:00:01:06   10.5.1.6    2001:08b0:be72:d4ea:5054:00ff:fe00:0106
+
+#---------------------------------------------------------------------
+# Add the DNS data.
+#[root@dns-server] 
+
+    vi /var/named/data/virtual.metagrid.co.uk.zone
+
+        ; KVM base machines.
+        $ORIGIN virtual.metagrid.co.uk.
+        $TTL 1d
+
+    +   centos-63   A       10.5.1.5
+    +   centos-63   AAAA    2001:08b0:be72:d4ea:5054:00ff:fe00:0105
+
+    +   debian-73   A       10.5.1.6
+    +   debian-73   AAAA    2001:08b0:be72:d4ea:5054:00ff:fe00:0106
+
+    vi /var/named/data/1.5.10.in-addr.arpa.zone
+
+        ; KVM virtual machines
+        $ORIGIN 1.5.10.in-addr.arpa.
+        $TTL 1d
+
+    +   5   IN PTR centos-65.virtual.metagrid.co.uk.
+    +   6   IN PTR debian-73.virtual.metagrid.co.uk.
+
+    vi /var/named/data/reverse-2001-8b0-be72-d4ea_64.IP6.ARPA
+
+        ; KVM virtual machines
+        $ORIGIN a.e.4.d.2.7.e.b.0.b.8.0.1.0.0.2.ip6.arpa.
+        $TTL 5m
+
+    +   5.0.1.0.0.0.e.f.f.f.0.0.4.5.0.5     IN      PTR     centos-65.virtual.metagrid.co.uk.
+    +   6.0.1.0.0.0.e.f.f.f.0.0.4.5.0.5     IN      PTR     debian-73.virtual.metagrid.co.uk.
+
+    service named reload
+
+#---------------------------------------------------------------------
+# Add the DHCP data.
+#[root@dhcp-server] 
+
+    vi /etc/dhcp/dhcpd.conf
+
+    +   host centos-65 {
+    +       hardware ethernet 52:54:00:00:01:05 ;
+    +       fixed-address centos-65.virtual.metagrid.co.uk. ;
+    +       }
+
+
+#---------------------------------------------------------------------
+# Create the initial VMs.
+#[root@kvm-server] 
+
+    isopool=/var/raid/zero/active/libvirt/iso
+    basepool=/var/raid/zero/active/libvirt/base
+    livepool=/var/raid/zero/active/libvirt/live
+
+    testvm=test-03
+    virt-install \
+        --debug \
+        --prompt \
+        --connect 'qemu:///system' \
+        --name "${testvm:?}" \
+        --ram 512 \
+        --vcpus 1 \
+        --virt-type kvm \
+        --accelerate \
+        --os-type    linux \
+        --os-variant rhel6 \
+        --network bridge:br0 \
+        --mac '52:54:00:00:01:05' \
+        --disk "path=${livepool:?}/${testvm:?}.qcow,size=8,sparse=true" \
+        --cdrom "${isopool:?}/CentOS-6.5-x86_64-bin-DVD1.iso" \
+
+        --nographics \
+        --noautoconsole \
+        --extra-args 'text console=ttyS0,115200'
+        --location "${isopool:?}/CentOS-6.5-x86_64-bin-DVD1.iso" \
+
+    virsh console "${testvm:?}"
+        ...
+        Ctrl+5
+
+    testvm=test-04
+    virt-install \
+        --debug \
+        --prompt \
+        --connect 'qemu:///system' \
+        --name "${testvm:?}" \
+        --ram 512 \
+        --vcpus 1 \
+        --virt-type kvm \
+        --accelerate \
+        --os-type    linux \
+        --network bridge:br0 \
+        --mac '52:54:00:00:01:06' \
+        --disk "path=${livepool:?}/${testvm:?}.qcow,size=8,sparse=true" \
+        --cdrom "${isopool:?}/debian-7.3.0-amd64-DVD-1.iso" \
+
+        --location "http://ftp.us.debian.org/debian/dists/wheezy/main/installer-amd64/" \
+        --nographics \
+        --noautoconsole \
+        --extra-args 'text console=ttyS0,115200'
+
+    #
+    # virt-install fails to fild the boot image inside the debian iso.
+    # (not in the list of paths it tries)
+    # --location "${isopool:?}/debian-7.3.0-amd64-DVD-1.iso" \
+    #
+    # Using --cdrom works, but then --extra-args doesn't.
+
+    # Difficult to script the actual install process.
+    # Cobbler   .. ?
+    # Kickstart .. ?
+
+    # qcow2 : fast to clone, fast to run
+    # raw   : slow to clone, fast to run
+
+    # start with a cache of cloned discs ?
+
+    # Serial install is clunky
+    # Debian install doesn't reboot
+        
+    # Centos text install doesn't give you the choice of partitions
+    # http://wiki.centos.org/Manuals/ReleaseNotes/CentOS6.0#head-710e17fe8ed8c98a1fe4faee4e11e2135df09fff
+    # https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Installation_Guide/ch-guimode-x86.html#idp45410064
+    # Suggest we use KickStart
+
+    
+
+
+
+
+
+
