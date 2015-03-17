@@ -1,0 +1,289 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2015 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Create the initial VM.
+#[root@kvm-server] 
+
+    Name : fedora-21-002
+    Size : 4 cpu cores 1G memory
+
+    File : fedora-21-002
+        Size : 8096 Mbyte
+        Type : raw
+        Pool : base
+    
+    MAC  : 52:54:00:00:01:07
+
+    Manual install of minimal Fedora.
+
+        512M swap
+        512M ext4 /boot
+        auto ext4 /
+
+#---------------------------------------------------------------------
+# Mount the virtual disc.
+#[root@kvm-server] 
+
+    vmdomain=fedora-21-002
+    vmmount=$(mktemp --directory)
+
+    guestmount --domain "${vmdomain:?}" --inspector --rw --selinux "${vmmount:?}"
+
+# -----------------------------------------
+# Clean the eth0 interface config.
+#[root@kvm-server] 
+
+    grep '^UUID'   "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+    grep '^HWADDR' "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+    sed -i '
+        /^UUID/d
+        /^HWADDR/d
+        ' "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+
+# -----------------------------------------
+# Configure eth0 interface to start on boot.
+#[root@kvm-server] 
+
+    grep '^ONBOOT' "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+    sed -i '
+        s/^ONBOOT=.*/ONBOOT=yes/
+        ' "${vmmount:?}/etc/sysconfig/network-scripts/ifcfg-eth0"
+
+# -----------------------------------------
+# Remove hardcoded hostname.
+#[root@kvm-server] 
+
+    if [  -e "${vmmount:?}/etc/hostname" ]
+    then
+        rm -f "${vmmount:?}/etc/hostname"
+    fi
+
+# -----------------------------------------
+# Add our SSH keys.
+#[root@kvm-server] 
+
+    if [ ! -e "${vmmount:?}/root/.ssh" ]
+    then
+        mkdir "${vmmount:?}/root/.ssh"
+    fi
+
+    pushd "${vmmount:?}/root"
+        pushd '.ssh'
+
+            if [ ! -e 'keys' ]
+            then
+                mkdir 'keys'
+            fi
+            pushd 'keys'
+                wget 'http://data.metagrid.co.uk/sshkeys/dmr.roe.ac.uk.pub'
+                wget 'http://data.metagrid.co.uk/sshkeys/stv.roe.ac.uk.pub'
+            popd
+
+            for keyfile in $(find 'keys' -name '*.pub')
+            do
+                echo "${keyfile:?}" 
+                cat  "${keyfile:?}" >> 'authorized_keys'
+            done
+
+        popd
+
+        chown root:root   '.ssh'
+        chmod g=,o=,u=rwx '.ssh'
+
+    popd
+    
+# -----------------------------------------
+# Disable SSH password login.
+#[root@kvm-server] 
+
+    grep '^PasswordAuthentication' "${vmmount:?}/etc/ssh/sshd_config"
+    sed -i '
+        s/^PasswordAuthentication .*/PasswordAuthentication no/
+        ' "${vmmount:?}/etc/ssh/sshd_config"
+
+# -----------------------------------------
+# Remove old SSH host keys.
+#[root@kvm-server] 
+
+    pushd "${vmmount:?}/etc/ssh"
+
+        ls -al ssh_host*
+        rm -f 'ssh_host*'
+
+    popd
+
+# -----------------------------------------
+# Randomise the root password.
+
+    rootpass=$(pwgen 40 1)
+
+    grep '^root' "${vmmount:?}/etc/shadow"
+    sed -i '
+        /^root:/ {
+            s/^root:\([^:]*\):\(.*\)/root:$6$'${rootpass:?}':\2/
+            }
+        ' "${vmmount:?}/etc/shadow"
+
+#---------------------------------------------------------------------
+# Unmount the virtual disc.
+#[root@kvm-server] 
+
+    fusermount -u "${vmmount:?}"
+
+# -----------------------------------------
+# Fix the SELinux attibutes.
+# https://danwalsh.livejournal.com/33728.html
+#[root@kvm-server] 
+
+    guestfish -i "${vmdomain:?}"
+
+        sh "ls -alZ /root/.ssh"
+
+        sh "/usr/sbin/sestatus"
+
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:ssh_home_t:s0' '/root/.ssh'"
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:ssh_home_t:s0' '/root/.ssh/authorized_keys'"
+
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:ssh_home_t:s0' '/root/.ssh/keys'"
+
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:etc_t:s0'     '/etc/ssh/sshd_config'"
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:etc_t:s0'     '/etc/passwd'"
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:shadow_t:s0'  '/etc/shadow'"
+
+# /etc/sysconfig/network
+# /etc/sysconfig/network-scripts/ifcfg-eth0
+# /etc/ssh/sshd_config
+
+    exit
+
+# -----------------------------------------
+# Sparsify the image file.
+#[root@kvm-server] 
+
+    #
+    # TODO do we need this ?
+    # Fix for lvresize bug (same size fails)
+    # https://bugzilla.redhat.com/show_bug.cgi?id=834712
+    # --ignore ubuntu-base
+
+    vmsource=$(virsh domblklist "${vmdomain:?}" | sed -n 's/^vda[ ]*\([^ ]*\)/\1/p')
+    vmsparse=$(mktemp)-sparse
+
+    virt-sparsify \
+        --compress \
+        --convert qcow2 \
+        "${vmsource:?}" \
+        "${vmsparse:?}"
+
+    ls -alh "${vmsource:?}"
+    ls -alh "${vmsparse:?}"
+
+# -----------------------------------------
+# Pack our image in a tar file and upload to our repository.
+#[root@kvm-server] 
+
+    volname=fedora-21-base-$(date '+%Y%m%d')
+    volfile=${volname:?}.qcow
+    tarfile=${volname:?}.tar.gz
+
+    pushd "$(mktemp --directory)"
+
+        ln -s "${vmsparse:?}" "${volfile:?}"
+
+        tar \
+            --gzip \
+            --create \
+            --sparse \
+            --verbose \
+            --dereference \
+            --file "${tarfile:?}" \
+            "${volfile:?}"
+        
+        archive=data.metagrid.co.uk:/var/local/websites/data/ischnura/base
+        archive=tyrosine.metagrid.co.uk:/tmp/
+
+        rsync \
+            --checksum \
+            --stats --human-readable --progress \
+            "${tarfile:?}" \
+            "${archive:?}"
+
+    popd
+
+# -----------------------------------------
+# Download our tar file and install it as a volume.
+#[root@kvm-server] 
+
+    archive=data.metagrid.co.uk:/var/local/websites/data/ischnura/base
+    archive=tyrosine.metagrid.co.uk:/tmp/
+
+    volpool=base
+    volname=fedora-21-base-$(date '+%Y%m%d')
+    volfile=${volname:?}.qcow
+    tarfile=${volname:?}.tar.gz
+
+    pushd "$(mktemp --directory)"
+
+        rsync \
+            --checksum \
+            --stats --human-readable --progress \
+            "${archive:?}/${tarfile:?}" .
+
+        tar \
+            --gzip \
+            --extract \
+            --verbose \
+            --file "${tarfile:?}"
+
+        virsh vol-delete --pool "${volpool:?}" "${volfile:?}"
+        virsh vol-create-as     "${volpool:?}" "${volfile:?}" 8GiB --allocation 0 --format qcow2
+        virsh vol-upload --pool "${volpool:?}" "${volfile:?}" "${volfile:?}"
+        virsh vol-info   --pool "${volpool:?}" "${volfile:?}"
+        virsh vol-path   --pool "${volpool:?}" "${volfile:?}"
+
+    popd
+
+# -----------------------------------------
+# Test our new image ...
+#[root@kvm-server] 
+
+    ischnura-createvm
+
+        [1] nu
+        [2] xi
+        ....
+        Select machine name (1) 1
+
+        Available base images
+        [1] ...
+        [2] fedora-21-base-20150317.qcow
+        ....
+        Select base image (1) 2 
+
+        INFO : Node name [nu]
+        INFO : Base name [fedora-21-base-20150317.qcow]
+        INFO : Disc name [nu.qcow]
+        INFO : Disc size [8G]
+        ....
+
+

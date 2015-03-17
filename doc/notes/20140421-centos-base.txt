@@ -27,14 +27,22 @@
 # Some of this is available using virt-sysprep
 # http://libguestfs.org/virt-sysprep.1.html
 #
+# Previous version of these notes used "touch .autorelabel" to trigger a SELinux relabel.
+# Result is the VM images are waaaay too slow to boot.
+# This version tries to avoid having to use .autorelabel.
+
 
 #---------------------------------------------------------------------
 # Create the initial VM.
 #[root@kvm-server] 
 
-    Manual install of minimal CentOS.
-    MAC 52:54:00:00:01:05
+    Name : centos-65-initial
+    File : centos-65-initial
+    Pool : base
+    
+    MAC  : 52:54:00:00:01:05
 
+    Manual install of minimal CentOS.
     Bare ext4 partition at /    
     No swap partition.
 
@@ -43,25 +51,21 @@
 # http://libguestfs.org/virt-alignment-scan.1.html
 #[root@kvm-server] 
 
-    vmdomain=test-04
+    vmdomain=centos-65-initial
     virt-alignment-scan -d "${vmdomain:?}"
 
-        /dev/sda2    525336576         1024K   ok
+        /dev/sda1      1048576         1024K   ok
 
 #---------------------------------------------------------------------
 # Mount the virtual disc.
 #[root@kvm-server] 
 
-    vmdomain=test-04
+    vmdomain=centos-65-initial
     vmmount=$(mktemp --directory)
 
     guestmount --domain "${vmdomain:?}" --inspector --rw --selinux "${vmmount:?}"
 
     ls -al "${vmmount:?}"
-
-#---------------------------------------------------------------------
-# Configure the virtual machine.
-#
 
 # -----------------------------------------
 # Clean the eth0 interface config.
@@ -130,7 +134,19 @@
     chown root:root   "${vmmount:?}/root/.ssh"
     chmod g=,o=,u=rwx "${vmmount:?}/root/.ssh"
 
-    #restorecon -R -v  "${vmmount:?}/root/.ssh"
+    #
+    # This won't work
+    # restorecon -R -v "${vmmount:?}/root/.ssh"
+
+    #
+    # These won't work
+    # https://bugzilla.redhat.com/show_bug.cgi?id=1060423
+    #
+    # setfattr -n 'security.selinux' -v 'system_u:object_r:ssh_home_t:s0' ${vmmount:?}/root/.ssh
+    # getfattr -n 'security.selinux' ${vmmount:?}/root/.ssh
+    #
+    # setfattr -n 'security.selinux' -v 'system_u:object_r:ssh_home_t:s0' ${vmmount:?}/root/.ssh/authorized_keys
+    # getfattr -n 'security.selinux' ${vmmount:?}/root/.ssh/authorized_keys
 
 # -----------------------------------------
 # Disable SSH password login.
@@ -139,6 +155,11 @@
     sed -i '
         s/^PasswordAuthentication .*/PasswordAuthentication no/
         ' "${vmmount:?}/etc/ssh/sshd_config"
+
+# -----------------------------------------
+# Remove SSH host keys.
+#[root@kvm-server] 
+
 
 # -----------------------------------------
 # Randomise the root password.
@@ -154,36 +175,53 @@
             }
         ' "${vmmount:?}/etc/shadow"
 
-# -----------------------------------------
-# Trigger SELinux rebuild on boot.
-#[root@kvm-server] 
-
-    # This takes too long at startup.
-    # All we need to do is restorecon on /root/.ssh/authorized_keys 
-
-    touch "${vmmount:?}/.autorelabel"
-
-    #
-    # Possible alternative
-    # http://danwalsh.livejournal.com/33728.html
-
 #---------------------------------------------------------------------
 # Unmount the virtual disc.
 #[root@kvm-server] 
 
     fusermount -u "${vmmount:?}"
-    #guestunmount "${vmmount:?}"
+
+# -----------------------------------------
+# Fix the SELinux attibutes.
+# https://danwalsh.livejournal.com/33728.html
+#[root@kvm-server] 
+
+    guestfish -i "${vmdomain:?}"
+
+        sh "/usr/sbin/sestatus"
+
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:ssh_home_t:s0' '/root/.ssh'"
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:ssh_home_t:s0' '/root/.ssh/authorized_keys'"
+
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:etc_t:s0'     '/etc/ssh/sshd_config'"
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:etc_t:s0'     '/etc/passwd'"
+        sh "/usr/bin/setfattr -n 'security.selinux' -v 'system_u:object_r:shadow_t:s0'  '/etc/shadow'"
+
+# /etc/sysconfig/network
+# /etc/sysconfig/network-scripts/ifcfg-eth0
+# /etc/ssh/sshd_config
+
+    exit
+
+# TODO - can we do all of the above by uploading and running a script ?
+# TODO - full list of the files we touched
+# TODO - set root password using guestfish ?
+
+# TODO - can we do much of this on firstboot ?
+# http://askubuntu.com/questions/156771/run-a-script-only-at-the-very-first-boot
+# TODO - when does a firstboot script run ?  
+
 
 # -----------------------------------------
 # Sparsify the image file.
 #[root@kvm-server] 
 
     #
+    # TODO do we need this ?
     # Fix for lvresize bug (same size fails)
     # https://bugzilla.redhat.com/show_bug.cgi?id=834712
     # --ignore ubuntu-base
 
-    vmdomain=test-04
     vmsource=$(virsh domblklist "${vmdomain:?}" | sed -n 's/^vda[ ]*\([^ ]*\)/\1/p')
     vmsparse=$(mktemp)
 
@@ -202,7 +240,7 @@
 #[root@kvm-server] 
 
     volpool=base
-    volname=centos-65-base-20140211
+    volname=centos-65-base-20140421
     volfile=${volname:?}.qcow
 
     virsh vol-delete --pool "${volpool:?}" "${volfile:?}"
@@ -211,37 +249,6 @@
     virsh vol-upload --pool "${volpool:?}" "${volfile:?}" "${vmsparse:?}"
     virsh vol-info   --pool "${volpool:?}" "${volfile:?}"
     virsh vol-path   --pool "${volpool:?}" "${volfile:?}"
-    
-# -----------------------------------------
-# Create a sparse tar file and upload it to our repository.
-#[root@kvm-server] 
-
-    imgfile=${volfile:?}
-    tarfile=${volname:?}.tar.gz
-    basedir=/var/local/projects/ischnura/base
-    
-    tempdir=$(mktemp --directory)
-    pushd "${tempdir:?}"
-
-        ln "${vmsparse:?}" "${imgfile:?}"
-
-        tar \
-            --gzip \
-            --create \
-            --sparse \
-            --verbose \
-            --file "${basedir:?}/${tarfile:?}" \
-            "${imgfile:?}"
-
-    popd
-    rm -r "${tempdir:?}"
-
-    rsync \
-        --recursive --copy-links --checksum \
-        --stats --human-readable --progress \
-        "${basedir:?}/" \
-        data.metagrid.co.uk:/var/local/websites/data/ischnura/base
-
 
 # -----------------------------------------
 # Tidy up ...
@@ -249,6 +256,7 @@
 
     virsh undefine --remove-all-storage "${vmdomain:?}"
     rmdir "${vmmount:?}"
+    rm -f "${vmsparse:?}"
 
 # -----------------------------------------
 # Try using our new image ...
@@ -274,48 +282,87 @@
         ....
 
 # -----------------------------------------
-# Configure our guest vm. 
-#[root@kvm-guest] 
+# Create a sparse tar file and upload it to our repository.
+#[root@kvm-server] 
 
-#
-# Install EPEL and ELREPO repositories.
-# https://fedoraproject.org/wiki/EPEL
-#[root@kvm-guest] 
-
-    #
-    # Install the EPEL repository
-    yum -y localinstall --nogpgcheck \
-        'https://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm'
-
-    #
-    # Install the ELREPO repository
-    yum localinstall -y --nogpgcheck \
-        'http://elrepo.org/elrepo-release-6-5.el6.elrepo.noarch.rpm'
-
-    #
-    # Install RPM fusion repository.
-    # http://rpmfusion.org/Configuration
-    # yum -y localinstall --nogpgcheck 'http://download1.rpmfusion.org/free/el/updates/6/x86_64/rpmfusion-free-release-6-1.noarch.rpm'
-    # yum -y localinstall --nogpgcheck 'http://download1.rpmfusion.org/nonfree/el/updates/6/x86_64/rpmfusion-nonfree-release-6-1.noarch.rpm'
-
-#
-# Update the system.
-#[root@kvm-guest] 
-
-    yum -y update
-
-#
-# Install Puppet client.
-#[root@kvm-guest] 
-
-    yum -y localinstall --nogpgcheck 'https://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-10.noarch.rpm'
-
-    yum -y install puppet 
+    volpath=$(virsh vol-path --pool "${volpool:?}" "${volfile:?}")
+    tarfile=${volname:?}.tar.gz
+    basedir=/var/local/projects/ischnura/base
     
-    #
-    # Use Puppet to enable the Puppet service
-    # http://docs.puppetlabs.com/guides/installation.html#post-install
-    # chkconfig puppet on 
-    puppet resource service puppet ensure=running enable=true
+    pushd "$(mktemp --directory)"
+
+        ln -s "${volpath:?}" "${volfile:?}"
+
+        tar \
+            --gzip \
+            --create \
+            --sparse \
+            --verbose \
+            --dereference \
+            --file "${tarfile:?}" \
+            "${volfile:?}"
+
+        rsync \
+            --checksum \
+            --stats --human-readable --progress \
+            "${tarfile:?}" \
+            data.metagrid.co.uk:/var/local/websites/data/ischnura/base
+
+    popd
+
+# -----------------------------------------
+# Download the sparse tar file and install it as a volume.
+#[root@kvm-server] 
+
+    volpool=base
+    volname=centos-65-base-20140421
+    volfile=${volname:?}.qcow
+
+    newfile=test-001.qcow
+    tarfile=centos-65-base-20140421.tar.gz
+    
+    pushd "$(mktemp --directory)"
+
+        wget "http://data.metagrid.co.uk/ischnura/base/${tarfile:?}"
+
+        tar \
+            --gzip \
+            --extract \
+            --verbose \
+            --file "${tarfile:?}"
+
+        virsh vol-create-as "${volpool:?}" "${newfile:?}" 8GiB --allocation 0 --format qcow2
+        virsh vol-upload --pool "${volpool:?}" "${newfile:?}" "${volfile:?}"
+        virsh vol-info   --pool "${volpool:?}" "${newfile:?}"
+        virsh vol-path   --pool "${volpool:?}" "${newfile:?}"
+
+    popd
+
+# -----------------------------------------
+# Try using our new image ...
+#[root@kvm-server] 
+
+    ischnura-createvm
+
+        [1] nu
+        ....
+        Select machine name (1) 1
+
+        Available base images
+        [1] centos-63-base-20130106.qcow
+        [2] centos-65-base-20140211.qcow
+        ....
+        [6] test-001.qcow
+        ....
+        Select base image (1) 6
+
+        INFO : Node name [nu]
+        INFO : Base name [test-001.qcow]
+        INFO : Disc name [nu.qcow]
+        INFO : Disc size [8G]
+        ....
+
+
+
 
 

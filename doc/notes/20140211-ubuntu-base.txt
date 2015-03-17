@@ -183,7 +183,6 @@
 
     rm -rf "${vmmount:?}/${userhome:?}"
 
-
 #---------------------------------------------------------------------
 # Unmount the virtual disc.
 #[root@kvm-server] 
