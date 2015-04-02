@@ -12,7 +12,7 @@
 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #     GNU General Public License for more details.
-#  
+#
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #   </meta:licence>
@@ -29,24 +29,43 @@ else
     source "${binpath}/utils"
 fi
 
-if isroot
-then
-    echo "DEBUG : ok"
-else
-    echo "ERROR : This must be run as root"
-    exit 0
-fi
-
-datpath=$(dirname ${binpath})/dat
-datfile=${datpath}/live-address.dat
-if [ ! -f "${datfile}" ]
-then
-    echo "ERROR : unable to find data file [${datfile}]"
-    exit -1
-fi
+#
+# Get the configuration data.
+sysname=$(hostname -s)
 
 basepool='base'
 livepool='live'
+connection='qemu:///system'
+
+datpath=$(dirname ${binpath})/dat
+datfile=${datpath}/${sysname:?}-machines.txt
+tempdir=$(dirname ${binpath})/tmp
+
+template=${datpath}/${sysname:?}-template.txt
+
+#
+# Check the configuration data.
+if [ ! -f "${datfile}" ]
+then
+    echo "ERROR : unable to find system data [${datfile}]"
+    exit -1
+fi
+
+if [ ! -e "${tempdir:?}" ]
+then
+    mkdir "${tempdir:?}"
+fi
+if [ ! -f "${tempdir}" ]
+then
+    echo "ERROR : unable to find temp directory [${tempdir}]"
+    exit -1
+fi
+
+if [ ! -f "${template}" ]
+then
+    echo "ERROR : unable to find template [${template}]"
+    exit -1
+fi
 
 #
 # Select the machine name.
@@ -81,7 +100,7 @@ done
 #
 # Select the base volume.
 tempdat=$(mktemp)
-virsh vol-list --pool "${basepool}" > "${tempdat}"
+virsh --connect "${connection:?}" vol-list --pool "${basepool}" > "${tempdat}"
 readarray -t -s 2 lines < "${tempdat}"
 basepaths=()
 basenames=()
@@ -150,7 +169,7 @@ fi
 
 #
 # Check for existing VM.
-prevuuid="$(virsh domuuid ${nodename:?} 2>/dev/null)"
+prevuuid="$(virsh --connect "${connection:?}" domuuid ${nodename:?} 2>/dev/null)"
 if [ -n "${prevuuid}" ]
 then
     echo ""
@@ -159,11 +178,11 @@ then
     if [ $? -eq 0 ]
     then
         #echo "Storage connected to [${name}]"
-        #virsh domblklist "${uuid}" --details
+        #virsh --connect "${connection:?}" domblklist "${uuid}" --details
 #
 #        echo "Storage connected to [${nodename}]"
 #        tempdat=$(mktemp)
-#        virsh domblklist "${uuid}" --details > "${tempdat}"
+#        virsh --connect "${connection:?}" domblklist "${uuid}" --details > "${tempdat}"
 #        readarray -t -s 2 lines < "${tempdat}"
 #        for line in "${lines[@]}"
 #        do
@@ -182,15 +201,15 @@ then
 #
 
 # TODO check if it is running.
-        virsh destroy  "${prevuuid:?}"
+        virsh --connect "${connection:?}" destroy  "${prevuuid:?}"
 
 
         confirm "Delete associated storage"
         if [ $? -eq 0 ]
         then
-            virsh undefine "${prevuuid:?}" --remove-all-storage
+            virsh --connect "${connection:?}" undefine "${prevuuid:?}" --remove-all-storage
         else
-            virsh undefine "${prevuuid:?}"
+            virsh --connect "${connection:?}" undefine "${prevuuid:?}"
         fi
     else
         echo "EXIT : Found existing virtual machine [${nodename:?}]"
@@ -200,7 +219,7 @@ fi
 
 #
 # Check for existing volume.
-prevuuid="$(virsh vol-key "${volname:?}" --pool "${livepool:?}" 2>/dev/null)"
+prevuuid="$(virsh --connect "${connection:?}" vol-key "${volname:?}" --pool "${livepool:?}" 2>/dev/null)"
 if [ -n "${prevuuid}" ]
 then
     echo ""
@@ -208,7 +227,7 @@ then
     confirm "Delete storage voume"
     if [ $? -eq 0 ]
     then
-        virsh vol-delete "${volname:?}" --pool "${livepool:?}"
+        virsh --connect "${connection:?}" vol-delete "${volname:?}" --pool "${livepool:?}"
     else
         echo "EXIT : Found existing storage volume [${volname:?}]"
         exit 0
@@ -217,7 +236,7 @@ fi
 
 #
 # Create a new volume, backed by the base image.
-virsh vol-create-as \
+virsh --connect "${connection:?}" vol-create-as \
     "${livepool:?}" \
     "${volname:?}" \
     "${volsize:?}" \
@@ -226,24 +245,23 @@ virsh vol-create-as \
     --backing-vol "${basepath:?}" \
     --backing-vol-format 'qcow2'
 
-#virsh vol-dumpxml --pool "${livepool:?}" "${volname:?}"
-virsh vol-info --pool "${livepool:?}" "${volname:?}"
+#virsh --connect "${connection:?}" vol-dumpxml --pool "${livepool:?}" "${volname:?}"
+virsh --connect "${connection:?}" vol-info --pool "${livepool:?}" "${volname:?}"
 
 #
 # Create a new virtual machine.
-volpath=$(virsh vol-path --pool "${livepool:?}" "${volname:?}")
+volpath=$(virsh --connect "${connection:?}" vol-path --pool "${livepool:?}" "${volname:?}")
 sed '
     s|<name>.*</name>|<name>'"${nodename:?}"'</name>|
-    s|<uuid>.*</uuid>|<uuid>'"$(uuidgen)"'</uuid>|
     s|<source file='\''.*'\''/>|<source file='\'''"${volpath}"''\''/>|
     s|<mac address='\''.*'\''/>|<mac address='\'''"$(${binpath}/netinfo ${nodename:?} 'mac')"''\''/>|
-    ' "${datpath}/base-vm.xml" > "${tempdir}/${nodename:?}.xml"
+    ' "${template}" > "${tempdir}/${nodename:?}.xml"
 
 # Start a new (unmanaged) instance
-# virsh create guest.xml
+# virsh --connect "${connection:?}" create guest.xml
 
 # Define a new (managed) instance
-virsh define "${tempdir}/${nodename:?}.xml"
-virsh start  "${nodename:?}"
+virsh --connect "${connection:?}" define "${tempdir}/${nodename:?}.xml"
+virsh --connect "${connection:?}" start  "${nodename:?}"
 
 

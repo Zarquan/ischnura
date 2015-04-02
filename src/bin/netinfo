@@ -34,7 +34,7 @@ what=${2:-'name'}
 type=${3:-'live'}
 
 datpath=$(dirname ${binpath})/dat
-datfile=${datpath}/${type:?}-address.dat
+datfile=${datpath}/shepseskaf-domains.txt
 if [ ! -f "${datfile}" ]
 then
     echo "ERROR : unable to find data file [${datfile}]"
