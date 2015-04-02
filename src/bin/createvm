@@ -20,6 +20,10 @@
 #
 #
 binpath=$(dirname $(readlink -f ${0}))
+srcpath=$(dirname ${binpath:?})
+toppath=$(dirname ${srcpath:?})
+datpath=${srcpath:?}/dat
+tempdir=${toppath:?}/tmp
 
 if [ ! -f "${binpath}/utils" ]
 then
@@ -37,27 +41,38 @@ basepool='base'
 livepool='live'
 connection='qemu:///system'
 
-datpath=$(dirname ${binpath})/dat
-datfile=${datpath}/${sysname:?}-machines.txt
-tempdir=$(dirname ${binpath})/tmp
-
-template=${datpath}/${sysname:?}-template.txt
+machines=${datpath:?}/${sysname:?}-machines.txt
+template=${datpath:?}/${sysname:?}-template.xml
 
 #
 # Check the configuration data.
-if [ ! -f "${datfile}" ]
-then
-    echo "ERROR : unable to find system data [${datfile}]"
-    exit -1
-fi
+
+echo ""
+echo "INFO : Base pool  [${basepool:?}]"
+echo "INFO : Live pool  [${livepool:?}]"
+echo "INFO : Connection [${connection:?}]"
+
+echo ""
+echo "INFO : Data path  [${datpath:?}]"
+echo "INFO : Temp path  [${tempdir:?}]"
+
+echo ""
+echo "INFO : Machines   [${machines:?}]"
+echo "INFO : Template   [${template:?}]"
 
 if [ ! -e "${tempdir:?}" ]
 then
     mkdir "${tempdir:?}"
 fi
-if [ ! -f "${tempdir}" ]
+if [ ! -e "${tempdir}" ]
 then
     echo "ERROR : unable to find temp directory [${tempdir}]"
+    exit -1
+fi
+
+if [ ! -f "${machines}" ]
+then
+    echo "ERROR : unable to find machines [${machines}]"
     exit -1
 fi
 
@@ -73,7 +88,7 @@ echo ""
 echo "Available machine names"
 nodename=''
 hostname=$(hostname -s)
-nodenames=($("${binpath}/netinfo" "${hostname}"))
+nodenames=($(properties "${hostname}" 'name'))
 for ((index = 0 ; index < ${#nodenames[@]} ; index++))
 do
     echo "[$[index + 1]] ${nodenames[$index]}"
@@ -149,16 +164,10 @@ volname=${nodename:?}.qcow
 echo ""
 echo "INFO : Node name [${nodename:?}]"
 echo "INFO : Base name [${basename:?}]"
-#echo "INFO : Base path [${basepath:?}]"
+echo "INFO : Base path [${basepath:?}]"
 echo "INFO : Disc name [${volname:?}]"
 echo "INFO : Disc size [${volsize:?}]"
 echo ""
-
-
-#echo ""
-#echo "INFO : MAC  [$(${binpath}/netinfo ${nodename:?} 'mac')]"
-#echo "INFO : IPV4 [$(${binpath}/netinfo ${nodename:?} 'ipv4')]"
-#echo "INFO : IPV6 [$(${binpath}/netinfo ${nodename:?} 'ipv6')]"
 
 confirm "Create virtual machine"
 if [ $? -ne 0 ]
@@ -177,32 +186,9 @@ then
     confirm "Delete existing virtual machine"
     if [ $? -eq 0 ]
     then
-        #echo "Storage connected to [${name}]"
-        #virsh --connect "${connection:?}" domblklist "${uuid}" --details
-#
-#        echo "Storage connected to [${nodename}]"
-#        tempdat=$(mktemp)
-#        virsh --connect "${connection:?}" domblklist "${uuid}" --details > "${tempdat}"
-#        readarray -t -s 2 lines < "${tempdat}"
-#        for line in "${lines[@]}"
-#        do
-#            if [ -n "${line}" ]
-#            then
-#                words=(${line})
-#                type=${words[0]}
-#                device=${words[1]}
-#                target=${words[2]}
-#                source=${words[3]}
-#
-#                echo "Volume [${type}][${device}][${target}][${source}]"
-#
-#            fi
-#        done
-#
 
 # TODO check if it is running.
         virsh --connect "${connection:?}" destroy  "${prevuuid:?}"
-
 
         confirm "Delete associated storage"
         if [ $? -eq 0 ]
@@ -245,7 +231,6 @@ virsh --connect "${connection:?}" vol-create-as \
     --backing-vol "${basepath:?}" \
     --backing-vol-format 'qcow2'
 
-#virsh --connect "${connection:?}" vol-dumpxml --pool "${livepool:?}" "${volname:?}"
 virsh --connect "${connection:?}" vol-info --pool "${livepool:?}" "${volname:?}"
 
 #
@@ -254,7 +239,7 @@ volpath=$(virsh --connect "${connection:?}" vol-path --pool "${livepool:?}" "${v
 sed '
     s|<name>.*</name>|<name>'"${nodename:?}"'</name>|
     s|<source file='\''.*'\''/>|<source file='\'''"${volpath}"''\''/>|
-    s|<mac address='\''.*'\''/>|<mac address='\'''"$(${binpath}/netinfo ${nodename:?} 'mac')"''\''/>|
+    s|<mac address='\''.*'\''/>|<mac address='\'''"$(properties "${nodename:?}" 'mac')"''\''/>|
     ' "${template}" > "${tempdir}/${nodename:?}.xml"
 
 # Start a new (unmanaged) instance

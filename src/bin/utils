@@ -19,7 +19,7 @@
 # </meta:header>
 #
 #
-here=$(dirname $(readlink -f ${0}))
+#here=$(dirname $(readlink -f ${0}))
 
 #
 # Convert multiple spaces to single tabs.
@@ -56,5 +56,40 @@ isroot()
     else
         return 1
     fi
+    }
+
+#
+# Get machine configurations.
+# TODO make this more accurate/reliable.
+properties()
+    {
+    local word=${1:?}
+    local what=${2:-'name'}
+
+    case $what in
+
+        host)
+            grep "\<${word}\>" "${machines:?}" | tabify | cut -f 1
+            ;;        
+
+        name)
+            grep "\<${word}\>" "${machines:?}" | tabify | cut -f 2
+            ;;        
+
+        mac)
+            grep "\<${word}\>" "${machines:?}" | tabify | cut -f 3
+            ;;        
+
+        ipv4)
+            grep "\<${word}\>" "${machines:?}" | tabify | cut -f 4
+            ;;        
+
+        ipv6)
+            grep "\<${word}\>" "${machines:?}" | tabify | cut -f 5
+            ;;        
+
+        *)
+            ;;
+    esac
     }
 
