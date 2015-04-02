@@ -242,8 +242,6 @@ sed '
     s|<mac address='\''.*'\''/>|<mac address='\'''"$(properties "${nodename:?}" 'mac')"''\''/>|
     ' "${template}" > "${tempdir}/${nodename:?}.xml"
 
-# Start a new (unmanaged) instance
-# virsh --connect "${connection:?}" create guest.xml
 
 # Define a new (managed) instance
 virsh --connect "${connection:?}" define "${tempdir}/${nodename:?}.xml"
