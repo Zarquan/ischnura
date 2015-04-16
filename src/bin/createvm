@@ -159,6 +159,8 @@ do
 done
 
 volsize=8G
+#volsize=$(virt-filesystems --long --block-devices -a "${newpath:?}" | sed -n 's|/dev/[a-z]*\s*device\s*\([0-9]*\)\s.*|\1|p')
+volsize=$(virsh -c 'qemu:///system' vol-info --pool "${basepool:?}" "${basename:?}" | sed -n 's/Capacity: *\([0-9]*\)\.\([0-9]*\) \([^ ]*\)/\1\3/p')
 volname=${nodename:?}.qcow
 
 echo ""
