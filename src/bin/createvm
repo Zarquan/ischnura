@@ -238,15 +238,16 @@ virsh --connect "${connection:?}" vol-info --pool "${livepool:?}" "${volname:?}"
 #
 # Create a new virtual machine.
 volpath=$(virsh --connect "${connection:?}" vol-path --pool "${livepool:?}" "${volname:?}")
+tempxml=$(mktemp)
 sed '
     s|<name>.*</name>|<name>'"${nodename:?}"'</name>|
     s|<source file='\''.*'\''/>|<source file='\'''"${volpath}"''\''/>|
     s|<mac address='\''.*'\''/>|<mac address='\'''"$(properties "${nodename:?}" 'mac')"''\''/>|
-    ' "${template}" > "${tempdir}/${nodename:?}.xml"
+    ' "${template}" > "${tempxml}"
 
 
 # Define a new (managed) instance
-virsh --connect "${connection:?}" define "${tempdir}/${nodename:?}.xml"
+virsh --connect "${connection:?}" define "${tempxml}"
 virsh --connect "${connection:?}" start  "${nodename:?}"
 
 
