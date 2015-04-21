@@ -23,7 +23,6 @@ binpath=$(dirname $(readlink -f ${0}))
 srcpath=$(dirname ${binpath:?})
 toppath=$(dirname ${srcpath:?})
 datpath=${srcpath:?}/dat
-tempdir=${toppath:?}/tmp
 
 if [ ! -f "${binpath}/utils" ]
 then
@@ -54,21 +53,10 @@ echo "INFO : Connection [${connection:?}]"
 
 echo ""
 echo "INFO : Data path  [${datpath:?}]"
-echo "INFO : Temp path  [${tempdir:?}]"
 
 echo ""
 echo "INFO : Machines   [${machines:?}]"
 echo "INFO : Template   [${template:?}]"
-
-if [ ! -e "${tempdir:?}" ]
-then
-    mkdir "${tempdir:?}"
-fi
-if [ ! -e "${tempdir}" ]
-then
-    echo "ERROR : unable to find temp directory [${tempdir}]"
-    exit -1
-fi
 
 if [ ! -f "${machines}" ]
 then
