@@ -1,7 +1,7 @@
 <domain type='kvm'>
   <name></name>
   <uuid></uuid>
-  <memory unit='MiB'>1024</memory>
+  <memory unit='MiB'>2048</memory>
   <vcpu placement='static'>2</vcpu>
   <resource>
     <partition>/machine</partition>
