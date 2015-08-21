@@ -134,6 +134,7 @@
 
 # -----------------------------------------
 # Randomise the root password.
+#[root@kvm-server] 
 
     rootpass=$(pwgen 40 1)
 

@@ -29,14 +29,6 @@ else
     source "${binpath}/utils"
 fi
 
-if isroot
-then
-    echo "DEBUG : ok"
-else
-    echo "ERROR : This must be run as root"
-    exit 0
-fi
-
 datpath=$(dirname ${binpath})/dat
 datfile=${datpath}/live-address.dat
 if [ ! -f "${datfile}" ]
