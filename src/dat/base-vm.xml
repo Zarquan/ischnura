@@ -4,7 +4,7 @@
   <memory unit='MiB'>1024</memory>
   <vcpu placement='static'>4</vcpu>
   <os>
-    <type arch='x86_64' machine='rhel6.3.0'>hvm</type>
+    <type arch='x86_64'>hvm</type>
     <boot dev='hd'/>
   </os>
   <features>
@@ -17,7 +17,8 @@
   <on_reboot>restart</on_reboot>
   <on_crash>restart</on_crash>
   <devices>
-    <emulator>/usr/libexec/qemu-kvm</emulator>
+    <!--emulator>/usr/libexec/qemu-kvm</emulator-->
+    <emulator>/bin/qemu-kvm</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2' cache='none'/>
       <target dev='vda' bus='virtio'/>

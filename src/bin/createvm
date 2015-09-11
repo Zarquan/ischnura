@@ -21,6 +21,8 @@
 #
 binpath=$(dirname $(readlink -f ${0}))
 
+tempdir=/tmp
+
 if [ ! -f "${binpath}/utils" ]
 then
     echo "ERROR : unable to load utils [${binpath}/utils]"
