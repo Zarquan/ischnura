@@ -32,7 +32,7 @@
         Type : raw
         Pool : base
     
-    MAC  : 52:54:00:00:01:07
+    MAC  : 52:54:00:00:01:08
 
     Manual install of minimal Fedora.
 
@@ -134,6 +134,7 @@
 
 # -----------------------------------------
 # Randomise the root password.
+#[root@kvm-server] 
 
     rootpass=$(pwgen 40 1)
 

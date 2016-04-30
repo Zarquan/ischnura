@@ -24,6 +24,8 @@ srcpath=$(dirname ${binpath:?})
 toppath=$(dirname ${srcpath:?})
 datpath=${srcpath:?}/dat
 
+tempdir=/tmp
+
 if [ ! -f "${binpath}/utils" ]
 then
     echo "ERROR : unable to load utils [${binpath}/utils]"

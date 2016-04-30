@@ -20,6 +20,10 @@
 #
 #
 
+#
+# DEPRECATED - see 20150317-fedora-base.txt
+#
+
 #---------------------------------------------------------------------
 # ISO image book keeping. 
 #[root@kvm-server] 
