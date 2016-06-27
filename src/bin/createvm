@@ -267,7 +267,7 @@ sed '
     ' "${template}" > "${tempxml}"
 
 
-# Define a new (managed) instance
+# Create and start a new instance
 echo "Creating new virtual machine [${nodename:?}]"
 virsh --connect "${connection:?}" define "${tempxml}"
 virsh --connect "${connection:?}" start  "${nodename:?}"
