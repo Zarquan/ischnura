@@ -1,0 +1,453 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2016 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Initial settings ....
+#[user@trop-01] 
+
+    : ${tempdir:='/tmp'}
+    : ${basepool:='base'}
+    : ${livepool:='live'}
+    : ${connection:='qemu:///system'}
+
+#---------------------------------------------------------------------
+# Add our user to the libvirt group.
+#[user@trop-01] 
+
+    sudo usermod -aG libvirt $(id -un)
+
+#---------------------------------------------------------------------
+# Check connection to libvirtd.
+#[user@trop-01] 
+
+    virsh \
+        --connect "${connection:?}" \
+        list --all
+
+#---------------------------------------------------------------------
+# Remove the default pool.
+#[user@trop-01] 
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-destroy 'default'
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-undefine 'default'
+
+#---------------------------------------------------------------------
+# Create our base pool.
+#[user@trop-01] 
+
+    basepath=/var/lib/libvirt/images/base
+
+    tmpxml=$(mktemp)
+cat > "${tmpxml:?}" << EOF
+<pool type="dir">
+    <name>${basepool:?}</name>
+    <target>
+        <path>${basepath:?}</path>
+    </target>
+</pool>
+EOF
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-define \
+            "${tmpxml:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-build \
+            "${basepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-start \
+            "${basepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-autostart \
+            "${basepool:?}"
+
+#---------------------------------------------------------------------
+# Create our live pool.
+#[user@trop-01] 
+
+    livepath=/var/lib/libvirt/images/live
+
+    tmpxml=$(mktemp)
+cat > "${tmpxml:?}" << EOF
+<pool type="dir">
+    <name>${livepool:?}</name>
+    <target>
+        <path>${livepath:?}</path>
+    </target>
+</pool>
+EOF
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-define \
+            "${tmpxml:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-build \
+            "${livepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-start \
+            "${livepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-autostart \
+            "${livepool:?}"
+
+#---------------------------------------------------------------------
+# Install git.
+#[user@trop-01] 
+
+    sudo apt-get update
+    sudo apt-get install git
+
+#---------------------------------------------------------------------
+# Checkout a copy of our code.
+#[user@trop-01] 
+
+    sudo mkdir /var/local/projects
+    sudo chgrp users  /var/local/projects
+    sudo chmod g=rwxs /var/local/projects
+    
+    pushd /var/local/projects
+
+        mkdir ischnura
+        pushd ischnura
+
+            git clone git@github.com:Zarquan/ischnura-kvm.git github
+
+        popd
+    popd
+
+#---------------------------------------------------------------------
+# Add the local config.
+#[user@trop-01] 
+
+    pushd /var/local/projects/ischnura/github
+
+        pushd src/dat
+
+            cp shepseskaf-template.xml tropical-template.xml
+
+            cat > tropical-machines.txt << EOF
+$(hostname -s)  Delild      52:54:00:00:00:00   192.168.200.10
+$(hostname -s)  Abecien     52:54:00:00:00:01   192.168.200.11
+$(hostname -s)  Saewan      52:54:00:00:00:02   192.168.200.12
+$(hostname -s)  Cadelicia   52:54:00:00:00:03   192.168.200.13
+
+$(hostname -s)  Froeseth    52:54:00:00:00:04   192.168.200.14
+$(hostname -s)  Astoalith   52:54:00:00:00:05   192.168.200.15
+$(hostname -s)  Erennon     52:54:00:00:00:06   192.168.200.16
+$(hostname -s)  Gworewia    52:54:00:00:00:07   192.168.200.17
+
+$(hostname -s)  Araybwyn    52:54:00:00:00:08   192.168.200.18
+$(hostname -s)  Lothigometh 52:54:00:00:00:09   192.168.200.19
+$(hostname -s)  Ulov        52:54:00:00:00:0A   192.168.200.20
+$(hostname -s)  Dwiema      52:54:00:00:00:0B   192.168.200.21
+
+$(hostname -s)  Ibalehar    52:54:00:00:00:0C   192.168.200.22
+$(hostname -s)  Eterathiel  52:54:00:00:00:0D   192.168.200.23
+$(hostname -s)  Siamond     52:54:00:00:00:0E   192.168.200.24
+$(hostname -s)  Acilamwen   52:54:00:00:00:0F   192.168.200.25
+
+$(hostname -s)  Umiawyth    52:54:00:00:00:10   192.168.200.26
+$(hostname -s)  Etalema     52:54:00:00:00:11   192.168.200.27
+$(hostname -s)  Greand      52:54:00:00:00:12   192.168.200.28
+$(hostname -s)  Nydiralle   52:54:00:00:00:13   192.168.200.29
+
+$(hostname -s)  Kedaekoth   52:54:00:00:00:14   192.168.200.30
+$(hostname -s)  Onelith     52:54:00:00:00:15   192.168.200.32
+$(hostname -s)  Elaleld     52:54:00:00:00:16   192.168.200.33
+$(hostname -s)  Afoaviel    52:54:00:00:00:17   192.168.200.34
+
+$(hostname -s)  Wumar       52:54:00:00:00:18   192.168.200.35
+$(hostname -s)  Larilaweth  52:54:00:00:00:19   192.168.200.36
+$(hostname -s)  Ror         52:54:00:00:00:1A   192.168.200.37
+$(hostname -s)  Asterade    52:54:00:00:00:1B   192.168.200.38
+
+$(hostname -s)  Ibedrinnon  52:54:00:00:00:1C   192.168.200.39
+$(hostname -s)  Arigorith   52:54:00:00:00:1D   192.168.200.40
+$(hostname -s)  Glydan      52:54:00:00:00:1E   192.168.200.41
+$(hostname -s)  Clarith     52:54:00:00:00:1F   192.168.200.42
+EOF
+
+        popd
+
+        cat > src/config << 'EOF'
+machines=${datpath:?}/tropical-machines.txt
+template=${datpath:?}/tropical-template.xml
+EOF
+
+    popd
+
+#---------------------------------------------------------------------
+# Update our hosts config.
+# http://stackoverflow.com/a/82278
+#[user@trop-01] 
+
+    sudo -s
+    awk \
+        '{printf "%-12s %s\n", $4, $2}' \
+        /var/local/projects/ischnura/github/src/dat/tropical-machines.txt \
+        >> /etc/hosts
+
+    exit
+
+#---------------------------------------------------------------------
+# Update our SSH config.
+#[user@trop-01] 
+
+    awk \
+        '
+        BEGIN {
+            ln=0
+            }
+            {
+            if ($0 != "")
+                {
+                if (ln++ == 0) {
+                    printf "Host %s", $2
+                    }
+                else {
+                    printf " %s", $2
+                    }
+                }
+            else
+                {
+                ln = 0
+                printf "\n"
+                printf "STUFF"
+                printf "\n"
+                }
+            }
+        END {
+            printf "\n"
+            printf "STUFF"
+            }' \
+        /var/local/projects/ischnura/github/src/dat/tropical-machines.txt \
+        > /tmp/config
+
+cat > /tmp/stuff << EOF    
+    User root
+    Protocol 2
+    Compression no
+    PasswordAuthentication no
+    UserKnownHostsFile /dev/null
+    CheckHostIP no
+    StrictHostKeyChecking no
+EOF
+
+    sed '
+        /^STUFF/ {
+            r /tmp/stuff
+            a
+            }
+        /^STUFF/ {
+            d
+            }
+        ' \
+        /tmp/config \
+        >> "${HOME}/.ssh/config"
+
+#---------------------------------------------------------------------
+# Create our default network.
+#[user@trop-01] 
+    
+cat > '/tmp/netbase' << EOF
+<network connections='9'>
+  <name>default</name>
+  <uuid></uuid>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='virbr0' stp='on' delay='0'/>
+  <ip address='192.168.200.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.200.2' end='192.168.200.254'/>
+HOSTLIST
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+    awk \
+        'BEGIN {
+            ln=0
+            }
+            {
+            if ($0 != "")
+                {
+                printf "      "
+                printf "<host mac=\"%s\" ip=\"%s\" name=\"%s\"/>", $3, $4, $2
+                printf "\n"
+                }
+            }
+        ' \
+        '/var/local/projects/ischnura/github/src/dat/tropical-machines.txt' \
+        > '/tmp/hostlist'
+
+
+    sed '
+        /HOSTLIST/ r /tmp/hostlist
+        /HOSTLIST/ d
+        ' '/tmp/netbase' | tee '/tmp/netconf'
+
+    virsh \
+        --connect "${connection:?}" \
+        net-destroy \
+            'default'
+
+    virsh \
+        --connect "${connection:?}" \
+        net-undefine \
+            'default'
+
+    virsh \
+        --connect "${connection:?}" \
+        net-define \
+            '/tmp/netconf'
+
+    virsh \
+        --connect "${connection:?}" \
+        net-start \
+            'default'
+
+    virsh \
+        --connect "${connection:?}" \
+        net-autostart \
+            'default'
+
+#---------------------------------------------------------------------
+# Download our docker image.
+#[user@trop-01] 
+
+    docksize=8G
+    dockname=fedora-23-docker-20160627
+    dockfile=${dockname:?}.qcow
+    dockgzip=${dockfile:?}.gz
+
+    wget "http://data.metagrid.co.uk/ischnura/base/${dockgzip:?}"
+
+    gunzip "${dockgzip:?}"
+
+#---------------------------------------------------------------------
+# Check the image contents.
+#[user@trop-01] 
+
+    sudo qemu-img \
+        info \
+        --backing-chain \
+        "${dockfile:?}"
+    
+#---------------------------------------------------------------------
+# Install our docker image.
+#[user@trop-01] 
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${dockfile:?}" \
+            "${docksize:?}" \
+            --format 'qcow2'
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${dockfile:?}" \
+            "${dockfile:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-list \
+            --pool "${basepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-list \
+            --pool "${livepool:?}"
+
+#---------------------------------------------------------------------
+# Update our path.
+#[user@trop-01] 
+
+    binpath=/var/local/projects/ischnura/github/src/bin
+
+    cat >> ~/.bashrc << EOF
+
+#
+# Add the Ischnura path.
+if [[ ! \${PATH:?} == *"ischnura"* ]]
+then
+    export PATH=\${PATH}:${binpath:?}
+fi
+
+EOF
+
+    source ~/.bashrc
+
+#---------------------------------------------------------------------
+# Create a test vm.
+#[user@trop-01] 
+
+    createvm
+
+    ssh "${vmname}"
+
+        #
+        # Run a database container. 
+        docker run \
+            --detach \
+            --name 'albert' \
+           'cosmopterix/pgsql'
+
+        #
+        # Login using the command line client.
+        docker exec \
+            --tty \
+            --interactive \
+            'albert' \
+            'pgsql-client'
+        
+            \q
+
+        exit
+
+
+

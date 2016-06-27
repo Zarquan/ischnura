@@ -361,7 +361,6 @@ EOF
 
     src/bin/createvm
 
-
 #---------------------------------------------------------------------
 # Login and test the new vm.
 #[user@methionine] 
