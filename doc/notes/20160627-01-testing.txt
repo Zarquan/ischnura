@@ -86,12 +86,6 @@ EOF
             "${basesize:?}" \
             --format qcow2
 
-    virsh \
-        --connect "${connection:?}" \
-        vol-info \
-            --pool "${basepool}" \
-            "${basefile:?}"
-
     basepath=$(virsh --connect "${connection:?}" vol-path --pool "${basepool:?}" "${basefile:?}")
 
     #
@@ -105,8 +99,10 @@ EOF
         "${nodeos:?}"
 
 #---------------------------------------------------------------------
-# Create and run a vm to trigger the selinux-relabel.
+# Create a vm to prepare the base image.
 #[user@methionine] 
+
+    vmname=selinux-boot
 
     #
     # Load the local config
@@ -116,13 +112,13 @@ EOF
     # Delete any existing VM.
     virsh \
         --connect "${connection:?}" \
-        undefine "${basename:?}"
+        undefine "${vmname:?}"
 
     #
     # Create a new VM definition.
     tempxml=$(mktemp)
     sed '
-        s|<name>.*</name>|<name>'"${basename:?}"'</name>|
+        s|<name>.*</name>|<name>'"${vmname:?}"'</name>|
         s|<source file='\''.*'\''/>|<source file='\'''"${basepath}"''\''/>|
         s|<mac address='\''.*'\''/>|<mac/>|
         ' "${template}" > "${tempxml}"
@@ -134,10 +130,10 @@ EOF
         define "${tempxml}"
 
     #
-    # Add our SSH key and trigger the relabel.
+    # Add our SSH key and trigger a restorecon.
     sudo virt-sysprep \
         --connect "${connection:?}" \
-        --domain "${basename:?}" \
+        --domain "${vmname:?}" \
         --root-password random \
         --ssh-inject root:file:/home/Zarquan/.ssh/zrq.metagrid.co.uk.rsa.pub \
         --firstboot-command 'restorecon -Rv /root/.ssh'
@@ -146,20 +142,15 @@ EOF
    # Delete the VM, but not the volume.
    virsh \
        --connect "${connection:?}" \
-       undefine "${basename:?}"
+       undefine "${vmname:?}"
 
 #---------------------------------------------------------------------
 # Create a new VM.
 #[user@methionine] 
 
-    src/bin/createvm
-
-#---------------------------------------------------------------------
-# Login to the VM.
-#[user@methionine] 
-
     vmname=eta
-    vmpath=$(virsh --connect "${connection:?}" vol-path --pool "${livepool:?}" "${vmname:?}.qcow")
+
+    src/bin/createvm
 
     ssh "${vmname}"
 
@@ -232,12 +223,33 @@ EOF
 # Check the qcow chain.
 #[user@methionine] 
 
-    sudo qemu-img info --backing-chain "${vmpath}"
+    vmpath=$(virsh --connect "${connection:?}" vol-path --pool "${livepool:?}" "${vmname:?}.qcow")
+
+    sudo qemu-img \
+        info \
+        --backing-chain \
+        "${basepath:?}"
+
+        image: /var/lib/libvirt/images/base/fedora-23-base-20160627.qcow
+        file format: qcow2
+        virtual size: 6.0G (6442450944 bytes)
+        disk size: 920M
+        cluster_size: 65536
+        Format specific information:
+            compat: 1.1
+            lazy refcounts: false
+            refcount bits: 16
+            corrupt: false
+
+    sudo qemu-img \
+        info \
+        --backing-chain \
+        ${vmpath:?}
 
         image: /var/lib/libvirt/images/live/eta.qcow
         file format: qcow2
         virtual size: 6.0G (6442450944 bytes)
-        disk size: 359M
+        disk size: 357M
         cluster_size: 65536
         backing file: /var/lib/libvirt/images/base/fedora-23-base-20160627.qcow
         backing file format: qcow2
@@ -347,13 +359,14 @@ EOF
 
     vmname=eta
 
-    ssh "${vmname}"
+    src/bin/createvm
+
 
 #---------------------------------------------------------------------
 # Login and test the new vm.
 #[user@methionine] 
 
-    ssh root@eta
+    ssh "${vmname}"
 
         docker run -it debian bash
 
@@ -369,74 +382,76 @@ EOF
         exit
 
 #---------------------------------------------------------------------
-# Push our base images to our webserver.
+# Push the base image to our webserver.
 #[user@methionine] 
 
-    scp \
-        $(virsh --connect "${connection:?}" vol-path --pool "${basepool:?}" "${basefile:?}") \
-        data.metagrid.co.uk:/var/local/websites/data/ischnura/base
+    basepath=$(virsh --connect "${connection:?}" vol-path --pool "${basepool:?}" "${basefile:?}")
+    basegzip=/tmp/${basefile:?}.gz
 
-    scp \
-        $(virsh --connect "${connection:?}" vol-path --pool "${basepool:?}" "${dockfile:?}") \
-        data.metagrid.co.uk:/var/local/websites/data/ischnura/base
+    sudo chmod a+r ${basepath:?}
+    
+    gzip -c "${basepath:?}" > "${basegzip:?}"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    rsync \
+        --stats \
+        --progress \
+        --human-readable \
+        ${basegzip:?} \
+        root@data.metagrid.co.uk:/var/local/websites/data/ischnura/base
 
 #---------------------------------------------------------------------
-# Add another SSH key.
+# Push the docker image to our webserver.
 #[user@methionine] 
 
-    #
-    # Delete any existing VM.
+    dockpath=$(virsh --connect "${connection:?}" vol-path --pool "${basepool:?}" "${dockfile:?}")
+    dockgzip=/tmp/${dockfile:?}.gz
+
+    sudo chmod a+r ${dockpath:?}
+    
+    gzip -c "${dockpath:?}" > "${dockgzip:?}"
+
+    rsync \
+        --stats \
+        --progress \
+        --human-readable \
+        ${dockgzip:?} \
+        root@data.metagrid.co.uk:/var/local/websites/data/ischnura/base
+
+#---------------------------------------------------------------------
+# Download our docker image.
+#[user@shep] 
+
+    docksize=8G
+    dockname=fedora-23-docker-20160627
+    dockfile=${dockname:?}.qcow
+    dockgzip=${dockfile:?}.gz
+
+    wget "http://data.metagrid.co.uk/ischnura/base/${dockgzip:?}"
+
+    gunzip "${dockgzip:?}"
+    
+#---------------------------------------------------------------------
+# Install our docker image.
+#[user@shep] 
+
+    : ${tempdir:='/tmp'}
+    : ${basepool:='base'}
+    : ${livepool:='live'}
+    : ${connection:='qemu:///system'}
+    
     virsh \
         --connect "${connection:?}" \
-        undefine "${nodename:?}"
+        vol-create-as \
+            "${basepool:?}" \
+            "${dockfile:?}" \
+            "${docksize:?}" \
+            --format 'qcow2'
 
-    #
-    # Create a new VM definition.
-    tempxml=$(mktemp)
-    sed '
-        s|<name>.*</name>|<name>'"${nodename:?}"'</name>|
-        s|<source file='\''.*'\''/>|<source file='\'''"${volpath}"''\''/>|
-        s|<mac address='\''.*'\''/>|<mac/>|
-        ' "${template}" > "${tempxml}"
-
-    #
-    # Define the new VM.
     virsh \
         --connect "${connection:?}" \
-        define "${tempxml}"
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${dockfile:?}" \
+            "${dockfile:?}"
 
-    #
-    # Add our SSH key and trigger the relabel.
-    sudo virt-sysprep \
-        --connect "${connection:?}" \
-        --domain "${nodename:?}" \
-        --root-password random \
-        --ssh-inject root:file:/home/Zarquan/.ssh/zrq.metagrid.co.uk.rsa.pub \
-        --firstboot-command 'restorecon -Rv /root/.ssh'
-
-   #
-   # Delete the VM, but not the volume.
-   virsh \
-       --connect "${connection:?}" \
-       undefine "${nodename:?}"
 
