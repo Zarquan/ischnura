@@ -2,7 +2,7 @@
   <name></name>
   <uuid></uuid>
   <memory unit='MiB'>1024</memory>
-  <vcpu placement='static'>4</vcpu>
+  <vcpu placement='static'>2</vcpu>
   <os>
     <type arch='x86_64'>hvm</type>
     <boot dev='hd'/>

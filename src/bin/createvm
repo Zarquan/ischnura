@@ -24,30 +24,27 @@ srcpath=$(dirname ${binpath:?})
 toppath=$(dirname ${srcpath:?})
 datpath=${srcpath:?}/dat
 
-tempdir=/tmp
 
-if [ ! -f "${binpath}/utils" ]
+#
+# Load our local configuration.
+cfgfile=${srcpath:?}/config
+if [ -e "${cfgfile:?}" ]
 then
-    echo "ERROR : unable to load utils [${binpath}/utils]"
-    exit -1
+    source "${cfgfile:?}"
 else
-    source "${binpath}/utils"
+    echo "ERROR : unable to find config [${cfgfile}]"
+    #exit -1
 fi
 
 #
-# Get the configuration data.
-sysname=$(hostname -s)
-
-basepool='base'
-livepool='live'
-connection='qemu:///system'
-
-machines=${datpath:?}/${sysname:?}-machines.txt
-template=${datpath:?}/${sysname:?}-template.xml
+# Set the default settings.
+: ${tempdir:='/tmp'}
+: ${basepool:='base'}
+: ${livepool:='live'}
+: ${connection:='qemu:///system'}
 
 #
 # Check the configuration data.
-
 echo ""
 echo "INFO : Base pool  [${basepool:?}]"
 echo "INFO : Live pool  [${livepool:?}]"
@@ -63,25 +60,34 @@ echo "INFO : Template   [${template:?}]"
 if [ ! -f "${machines}" ]
 then
     echo "ERROR : unable to find machines [${machines}]"
-    exit -1
+    #exit -1
 fi
 
 if [ ! -f "${template}" ]
 then
     echo "ERROR : unable to find template [${template}]"
-    exit -1
+    #exit -1
+fi
+
+#
+# Load our input utils.
+if [ ! -f "${binpath}/utils" ]
+then
+    echo "ERROR : unable to load utils [${binpath}/utils]"
+    #exit -1
+else
+    source "${binpath}/utils"
 fi
 
 #
 # Select the machine name.
 echo ""
-echo "Available machine names"
-nodename=''
-hostname=$(hostname -s)
-nodenames=($(properties "${hostname}" 'name'))
-for ((index = 0 ; index < ${#nodenames[@]} ; index++))
+#echo "Available machine names"
+thisname=$(hostname -s)
+namelist=( $(cat "${machines:?}" | awk '{if ($1 == "'${thisname:?}'") {print $2}}') )
+for ((index = 0 ; index < ${#namelist[@]} ; index++))
 do
-    echo "[$[index + 1]] ${nodenames[$index]}"
+    echo "[$[index + 1]] ${namelist[$index]}"
 done
 
 nodename=''
@@ -90,14 +96,14 @@ do
     read -p "Select machine name (1) " response
     if [ "${response}" == '' ]
     then
-        nodename=${nodenames[0]}
+        nodename=${namelist[0]}
     else
         words=(${response})
         (( index = ${words[0]}  ))
-        (( limit = ${#nodenames[@]} ))
+        (( limit = ${#namelist[@]} ))
         if (( (index > 0) && (index <= limit) ))
         then
-            nodename=${nodenames[$[index-1]]}
+            nodename=${namelist[$[index-1]]}
         fi
     fi
 done
@@ -121,7 +127,7 @@ do
 done
 
 echo ""
-echo "Available base images"
+#echo "Available base images"
 for ((index = 0 ; index < ${#basenames[@]} ; index++))
 do
     echo "[$[index + 1]] ${basenames[$index]}"
@@ -148,9 +154,7 @@ do
     fi
 done
 
-volsize=8G
-#volsize=$(virt-filesystems --long --block-devices -a "${newpath:?}" | sed -n 's|/dev/[a-z]*\s*device\s*\([0-9]*\)\s.*|\1|p')
-volsize=$(virsh -c 'qemu:///system' vol-info --pool "${basepool:?}" "${basename:?}" | sed -n 's/Capacity: *\([0-9]*\)\.\([0-9]*\) \([^ ]*\)/\1\3/p')
+volsize=$(virsh  --connect "${connection:?}" vol-info --pool "${basepool:?}" "${basename:?}" | sed -n 's/Capacity: *\([0-9]*\)\.\([0-9]*\) \([^ ]*\)/\1\3/p')
 volname=${nodename:?}.qcow
 
 echo ""
@@ -159,6 +163,18 @@ echo "INFO : Base name [${basename:?}]"
 echo "INFO : Base path [${basepath:?}]"
 echo "INFO : Disc name [${volname:?}]"
 echo "INFO : Disc size [${volsize:?}]"
+echo ""
+
+thisname=$(hostname -s)
+thisline=($(cat "${machines:?}" | awk '{if (($1 == "'${thisname:?}'") && ($2 == "'${nodename:?}'")) {print}}'))
+
+nodemac=${thisline[2]}
+nodeip4=${thisline[3]}
+nodeip6=${thisline[4]}
+
+echo "INFO : MAC  [${nodemac}]"
+echo "INFO : IPv4 [${nodeip4}]"
+echo "INFO : IPv6 [${nodeip6}]"
 echo ""
 
 confirm "Create virtual machine"
@@ -170,8 +186,8 @@ fi
 
 #
 # Check for existing VM.
-prevuuid="$(virsh --connect "${connection:?}" domuuid ${nodename:?} 2>/dev/null)"
-if [ -n "${prevuuid}" ]
+domuuid="$(virsh --connect "${connection:?}" domuuid ${nodename:?} 2>/dev/null)"
+if [ -n "${domuuid}" ]
 then
     echo ""
     echo "Found existing virtual machine [${nodename:?}]"
@@ -179,15 +195,27 @@ then
     if [ $? -eq 0 ]
     then
 
-# TODO check if it is running.
-        virsh --connect "${connection:?}" destroy  "${prevuuid:?}"
+        #
+        # Check for active VM and kill it. 
+        nodestate=$(virsh --connect "${connection:?}" domstate "${domuuid:?}")
+        case $nodestate in
+            paused|running)
+                echo "Stopping virtual machine [${nodename:?}]"
+                virsh --connect "${connection:?}" destroy "${domuuid:?}"
+                ;;        
+
+            *)
+                ;;
+        esac
 
         confirm "Delete associated storage"
         if [ $? -eq 0 ]
         then
-            virsh --connect "${connection:?}" undefine "${prevuuid:?}" --remove-all-storage
+            echo "Deleting virtual machine [${nodename:?}]"
+            virsh --connect "${connection:?}" undefine "${domuuid:?}" --remove-all-storage
         else
-            virsh --connect "${connection:?}" undefine "${prevuuid:?}"
+            echo "Deleting virtual machine [${nodename:?}]"
+            virsh --connect "${connection:?}" undefine "${domuuid:?}"
         fi
     else
         echo "EXIT : Found existing virtual machine [${nodename:?}]"
@@ -197,14 +225,15 @@ fi
 
 #
 # Check for existing volume.
-prevuuid="$(virsh --connect "${connection:?}" vol-key "${volname:?}" --pool "${livepool:?}" 2>/dev/null)"
-if [ -n "${prevuuid}" ]
+voluuid="$(virsh --connect "${connection:?}" vol-key "${volname:?}" --pool "${livepool:?}" 2>/dev/null)"
+if [ -n "${voluuid}" ]
 then
     echo ""
     echo "Found existing storage voume [${volname:?}]"
     confirm "Delete storage voume"
     if [ $? -eq 0 ]
     then
+        echo "Deleting storage volume [${volname:?}]"
         virsh --connect "${connection:?}" vol-delete "${volname:?}" --pool "${livepool:?}"
     else
         echo "EXIT : Found existing storage volume [${volname:?}]"
@@ -214,6 +243,8 @@ fi
 
 #
 # Create a new volume, backed by the base image.
+echo ""
+echo "Creating new volume [${volname:?}]"
 virsh --connect "${connection:?}" vol-create-as \
     "${livepool:?}" \
     "${volname:?}" \
@@ -232,12 +263,17 @@ tempxml=$(mktemp)
 sed '
     s|<name>.*</name>|<name>'"${nodename:?}"'</name>|
     s|<source file='\''.*'\''/>|<source file='\'''"${volpath}"''\''/>|
-    s|<mac address='\''.*'\''/>|<mac address='\'''"$(properties "${nodename:?}" 'mac')"''\''/>|
+    s|<mac address='\''.*'\''/>|<mac address='\'''"${nodemac:?}"''\''/>|
     ' "${template}" > "${tempxml}"
 
 
 # Define a new (managed) instance
+echo "Creating new virtual machine [${nodename:?}]"
 virsh --connect "${connection:?}" define "${tempxml}"
 virsh --connect "${connection:?}" start  "${nodename:?}"
+
+#
+# Tidy up ..
+rm "${tempxml}"
 
 
