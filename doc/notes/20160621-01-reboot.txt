@@ -1,0 +1,327 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2016 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Merge the two branches
+#[user@methionine] 
+
+    pushd /var/local/projects/metagrid/ischnura
+
+        mv github master
+
+        git clone master shep
+
+        pushd master
+            git checkout master
+        popd
+        
+        pushd shep
+            git checkout shep
+        popd
+
+        meld master shep &
+
+    popd
+
+#---------------------------------------------------------------------
+# Experiments ..
+#[user@methionine] 
+
+    pushd /var/local/projects/metagrid/ischnura
+        pushd shep
+
+            cfgfile=src/config
+
+cat > "${cfgfile:?}" << 'EOF'
+machines=${datpath:?}/metagrid-machines.txt
+template=${datpath:?}/metagrid-template.xml
+EOF
+
+            src/bin/createvm
+
+
+        popd
+    popd
+
+
+#---------------------------------------------------------------------
+# Experiments ..
+#[user@methionine] 
+
+    pushd /var/local/projects/metagrid/ischnura
+        pushd shep
+
+            datpath=src/dat
+            cfgfile=src/config
+            source "${cfgfile:?}"
+
+            : ${tempdir:='/tmp'}
+            : ${basepool:='base'}
+            : ${livepool:='live'}
+            : ${connection:='qemu:///system'}
+
+            virsh \
+                --connect "${connection:?}" \
+                capabilities \
+                > capabilities.xml
+
+            # hostarch=$(xmllint --xpath 'string(capabilities/host/cpu/arch)' capabilities.xml)
+            # guestemu=$(xmllint --xpath 'string(/capabilities/guest/arch[@name=string(/capabilities/host/cpu/arch)]/emulator)' capabilities.xml)
+
+        #
+        # Create the initial base image.
+        #
+            
+            #
+            # Network location of the OS source.
+            netinst=http://mirrorservice.org/sites/download.fedora.redhat.com/pub/fedora/linux/releases/24/Server/x86_64/os
+
+            #
+            # Set the VM properties.
+            nodecpu=2
+            nodemem=2048
+            nodearch=x86_64
+
+            nodedate=$(date +%Y%m%d)
+            nodesize=small
+            
+            nodename=fedora-24-${nodesize}-${nodedate:?}
+
+            #
+            # Set the volume properties.
+            volsize=8G
+            volname=${nodename}.qcow
+
+            #
+            # Delete any existing volume.
+            virsh \
+                --connect "${connection:?}" \
+                vol-delete \
+                    --pool "${basepool}" \
+                    "${volname:?}"
+
+            #
+            # Create a new (empty) volume.
+            virsh \
+                --connect "${connection:?}" \
+                vol-create-as \
+                    "${basepool:?}" \
+                    "${volname:?}" \
+                    "${volsize:?}" \
+                    --format qcow2
+
+            virsh \
+                --connect "${connection:?}" \
+                vol-info \
+                    --pool "${basepool}" \
+                    "${volname:?}"
+
+            #
+            # Install the OS. 
+            virt-install \
+                --connect "${connection:?}" \
+                --name "${nodename:?}" \
+                --memory "${nodemem:?}" \
+                --vcpus  "${nodecpu:?}" \
+                --location "${netinst:?}" \
+                --disk "vol=${basepool:?}/${volname:?}"
+
+            #   --root-password random \
+            #   --root-password password:PASSWORD \
+            #   --firstboot-command 'restorecon -r /root/.ssh'
+
+            #
+            # Add root keys and passwords.
+            sudo virt-sysprep \
+                --connect "${connection:?}" \
+                --domain "${nodename:?}" \
+                --root-password password:PASSWORD \
+                --ssh-inject root:file:/home/Zarquan/.ssh/zrq.metagrid.co.uk.rsa.pub \
+                --selinux-relabel
+
+            #
+            # Trigger a SELinux relabel.
+            virsh \
+                --connect "${connection:?}" \
+                start "${nodename:?}"
+            sleep 60
+            virsh \
+                --connect "${connection:?}" \
+                shutdown "${nodename:?}"
+
+            #
+            # Delete the VM, but not the volume.
+            virsh \
+                --connect "${connection:?}" \
+                undefine "${nodename:?}"
+
+        #
+        # Volume is now available for use as a base.
+        #                
+
+
+        #
+        # Create a derived image.
+        #
+
+            #
+            # Save the original name and path.
+            basename=${volname:?}
+            basename=fedora-24-small-20160622.qcow
+            basepath=$(virsh --connect "${connection:?}" vol-path --pool "${basepool:?}" "${basename:?}")
+
+            #
+            # Set the VM properties.
+            nodecpu=2
+            nodemem=2048
+            nodearch=x86_64
+
+            nodedate=$(date +%Y%m%d)
+            nodesize=small
+            
+            nodename=fedora-24-docker-${nodedate:?}
+
+            #
+            # Set the volume properties.
+            volsize=8G
+            volname=${nodename}.qcow
+
+            #
+            # Delete any existing volume.
+            virsh \
+                --connect "${connection:?}" \
+                vol-delete \
+                    --pool "${basepool}" \
+                    "${volname:?}"
+
+            #
+            # Create a new derived volume.
+            virsh \
+                --connect "${connection:?}" \
+                vol-create-as \
+                    "${basepool:?}" \
+                    "${volname:?}" \
+                    "${volsize:?}" \
+                    --format 'qcow2' \
+                    --backing-vol "${basepath:?}" \
+                    --backing-vol-format 'qcow2'
+
+            virsh \
+                --connect "${connection:?}" \
+                vol-info \
+                    --pool "${basepool}" \
+                    "${volname:?}"
+
+            #
+            # Create a new VM definition.
+            volpath=$(virsh --connect "${connection:?}" vol-path --pool "${basepool:?}" "${volname:?}")
+            tempxml=$(mktemp)
+            sed '
+                s|<name>.*</name>|<name>'"${nodename:?}"'</name>|
+                s|<source file='\''.*'\''/>|<source file='\'''"${volpath}"''\''/>|
+                s|<mac address='\''.*'\''/>|<mac/>|
+                ' "${template}" > "${tempxml}"
+
+            #
+            # Define the new VM.
+            virsh \
+                --connect "${connection:?}" \
+                define "${tempxml}"
+
+            #
+            # Tidy up the XML.
+            rm  "${tempxml}"
+
+
+#
+# Create our install script.
+cat << 'EOS' > /tmp/install.sh
+#
+# Add the Docker repository.
+cat << 'EOF' > /etc/yum.repos.d/docker.repo 
+[dockerrepo]
+name=Docker Repository
+baseurl=https://yum.dockerproject.org/repo/main/fedora/$releasever/
+enabled=1
+gpgcheck=1
+gpgkey=https://yum.dockerproject.org/gpg
+EOF
+
+#
+# Install the docker engine
+dnf -y install docker-engine
+
+#
+# Enable the Docker service.
+systemctl enable docker
+
+EOS
+
+            #
+            # Install our install script.
+            sudo virt-customize \
+                --connect "${connection:?}" \
+                --domain "${nodename:?}" \
+                --no-network \
+                --upload /tmp/install.sh:/root/install.sh
+
+            #
+            # Start the new VM.
+            virsh \
+                --connect "${connection:?}" \
+                start "${nodename:?}"
+
+
+
+
+
+
+
+
+
+            #
+            # Add Docker repo and engine.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            src/bin/createvm
+
+
+
+#
+# virt-install container support ?
+#
+

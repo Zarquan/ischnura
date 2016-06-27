@@ -1,0 +1,256 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2016 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Merge code different branches.
+
+    Standard install method.
+
+        shepseskaf adds ischnura-kvm to the users path
+
+        tyrosine uses symlink in /usr/local/sbin
+        methionine uses symlink in /usr/local/bin
+
+
+#---------------------------------------------------------------------
+# Methionine uses global symlink in /usr/local/bin
+#[user@methionine] 
+
+    which createvm
+
+        /usr/local/bin/createvm
+
+    ls -al /usr/local/bin
+
+        createvm -> /var/local/projects/metagrid/ischnura/github/src/bin/createvm
+
+#---------------------------------------------------------------------
+# Methionine is on the shep branch
+#[user@methionine] 
+
+    pushd /var/local/projects/metagrid/ischnura/github
+
+        git status
+
+            On branch shep
+            Your branch is up-to-date with 'origin/shep'.
+    
+    popd    
+
+#---------------------------------------------------------------------
+# Methionine uses hostname to select the right data file
+#[user@methionine] 
+
+    vi /var/local/projects/metagrid/ischnura/github/src/bin/createvm
+
+        sysname=$(hostname -s)
+        ....
+        machines=${datpath:?}/${sysname:?}-machines.txt
+        template=${datpath:?}/${sysname:?}-template.xml
+
+
+    ls -1 /var/local/projects/metagrid/ischnura/github/src/dat
+
+        base-address.dat
+        metagrid-machines.txt
+        metagrid-template.xml
+        methionine-machines.txt --> metagrid-machines.txt
+        methionine-template.xml --> metagrid-template.xml
+
+#---------------------------------------------------------------------
+# Asparagine uses global symlink in /usr/local/sbin
+#[user@asparagine] 
+
+    which ischnura-createvm
+
+        /usr/local/sbin/ischnura-createvm
+
+    ls -al /usr/local/sbin
+
+        ischnura-createvm -> /var/local/toolkits/ischnura/git/ischnura-kvm/src/bin/createvm
+
+#---------------------------------------------------------------------
+# Asparagine is on the master branch
+#[user@asparagine] 
+
+    pushd /var/local/toolkits/ischnura/git/ischnura-kvm
+
+        git status
+
+            # On branch master
+            # Changed but not updated:
+            #   (use "git add <file>..." to update what will be committed)
+            #   (use "git checkout -- <file>..." to discard changes in working directory)
+            #
+            #	modified:   src/bin/createvm
+    
+    popd    
+
+#---------------------------------------------------------------------
+# Asparagine uses fixed data file
+#[user@asparagine] 
+
+    vi /var/local/toolkits/ischnura/git/ischnura-kvm/src/bin/createvm
+        ....
+        datpath=$(dirname ${binpath})/dat
+        datfile=${datpath}/live-address.dat
+        ....
+
+    ls -1 /var/local/toolkits/ischnura/git/ischnura-kvm/src/dat
+
+        base-address.dat
+        base-vm.xml
+        live-address.dat
+
+#---------------------------------------------------------------------
+# Tyrosine uses global symlink in /usr/local/sbin
+#[user@tyrosine] 
+
+    which ischnura-createvm
+
+        /usr/local/sbin/ischnura-createvm
+
+    ls -al /usr/local/sbin
+
+        ischnura-createvm -> /var/local/toolkits/ischnura/git/ischnura-kvm/src/bin/createvm
+
+#---------------------------------------------------------------------
+# Tyrosine is on the master branch
+#[user@tyrosine] 
+
+    pushd /var/local/toolkits/ischnura/git/ischnura-kvm
+
+        git status
+
+            # On branch master
+            # Changed but not updated:
+            #   (use "git add <file>..." to update what will be committed)
+            #   (use "git checkout -- <file>..." to discard changes in working directory)
+            #
+            #	modified:   src/bin/createvm
+            #
+
+    popd
+    
+#---------------------------------------------------------------------
+# Tyrosine uses fixed data file
+#[user@tyrosine] 
+
+    vi /var/local/toolkits/ischnura/git/ischnura-kvm/src/bin/createvm
+        ....
+        datpath=$(dirname ${binpath})/dat
+        datfile=${datpath}/live-address.dat
+        ....
+
+    ls -1 /var/local/toolkits/ischnura/git/ischnura-kvm/src/dat
+
+        base-address.dat
+        base-vm.xml
+        live-address.dat
+
+#---------------------------------------------------------------------
+# Shepseskaf uses bashrc to add ischnura to the users PATH
+#[user@shepseskaf] 
+
+    vi .bashrc 
+        
+        #
+        # Add the virtual machine tools to our path
+        export PATH=${PATH}:/home/dave/projects/ischnura-kvm/src/bin
+
+    echo $PATH 
+
+        .....:/home/dave/projects/ischnura-kvm/src/bin
+
+
+#---------------------------------------------------------------------
+# Shepseskaf is on the shep branch
+#[user@shepseskaf] 
+
+    pushd /home/dave/projects/ischnura-kvm
+
+        git status
+
+            On branch shep
+            Your branch is up-to-date with 'origin/shep'.
+            nothing to commit, working directory clean
+
+    popd
+
+#---------------------------------------------------------------------
+# Shepseskaf uses hostname to select the right data file
+#[user@shepseskaf] 
+
+    vi /home/dave/projects/ischnura-kvm/src/bin/createvm
+
+        sysname=$(hostname -s)
+        ....
+        machines=${datpath:?}/${sysname:?}-machines.txt
+        template=${datpath:?}/${sysname:?}-template.xml
+
+    ls -1 /home/dave/projects/ischnura-kvm/src/dat
+
+        base-address.dat
+        ....
+        shepseskaf-machines.txt
+        shepseskaf-template.xml
+
+#---------------------------------------------------------------------
+# Differences between the branches.
+#[user@methionine] 
+
+    pushd /var/local/projects/metagrid/ischnura/github
+
+        git diff master shep
+
+    popd
+
+#---------------------------------------------------------------------
+# Create a new branch on methionine.
+#[user@methionine] 
+
+    * One dat file per location - metagrid, shepseskaf, 
+    * Use symlink to select the dat file.
+    * Use hostname to select host within the dat file 
+
+    * 4 physical machines
+    * 128G memory, 32 cpu cores per machine
+    * 4 * 32 = 128 virtual machines
+    * Need to use numbers not names for the VMs
+
+    * Host names for the physical machines ?
+    * Tropical forest plants ?
+    * https://en.wikipedia.org/wiki/Bromeliaceae#Classification
+
+#---------------------------------------------------------------------
+# Notes ...
+#[user@methionine] 
+
+    Ansible OpenStack example with Spark at SLAC
+    https://github.com/brianv0/ansible-openstack/blob/master/spark-cluster.yml
+
+    CloudInit
+    https://cloudinit.readthedocs.io/en/latest/index.html
+
+    CloudInit on DigitalOcean
+    https://www.digitalocean.com/community/tutorials/an-introduction-to-cloud-config-scripting
+
+
