@@ -40,7 +40,7 @@
 
     #
     # https://jamielinux.com/docs/libvirt-networking-handbook/index.html
-    # https://www.howtoforge.com/virtualization-with-kvm-on-a-debian-squeeze-server#-installing-kvm
+    # https://www.howtoforge.com/virtualization-with-kvm-on-a-debian-squeeze-server
     # https://wiki.debian.org/BridgeNetworkConnections
     # https://wiki.debian.org/NetworkConfiguration
 
@@ -255,11 +255,12 @@ EOF
     sudo vi /etc/network/interfaces
 
         # The primary network interface
-        allow-hotplug eth0
+    -   allow-hotplug eth0
     -   iface eth0 inet static
-    +   iface eth0 inet manual
+    -   iface eth0 inet manual
     +
     +   # The bridge interface
+    +   auto br0
     +   iface br0 inet static
     +       hwaddress 0c:c4:7a:35:12:06
             address 192.168.137.233
