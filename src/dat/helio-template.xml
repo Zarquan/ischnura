@@ -19,9 +19,9 @@
     <timer name='pit' tickpolicy='delay'/>
     <timer name='hpet' present='no'/>
   </clock>
-  <cpu mode='custom' match='exact'>
+  <!--cpu mode='custom' match='exact'>
     <model fallback='allow'>Penryn</model>
-  </cpu>
+  </cpu-->
   <on_poweroff>destroy</on_poweroff>
   <on_reboot>restart</on_reboot>
   <on_crash>restart</on_crash>
