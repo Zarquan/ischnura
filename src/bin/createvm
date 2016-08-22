@@ -276,4 +276,6 @@ virsh --connect "${connection:?}" start  "${nodename:?}"
 # Tidy up ..
 rm "${tempxml}"
 
-
+#
+# Export the node name
+export nodename=${nodename:?}
