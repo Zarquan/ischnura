@@ -1,0 +1,149 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2016, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Initial settings ....
+#[user@trop-01] 
+
+    : ${tempdir:='/tmp'}
+    : ${basepool:='base'}
+    : ${livepool:='live'}
+    : ${connection:='qemu:///system'}
+
+#---------------------------------------------------------------------
+# Download our docker image.
+#[user@trop-01] 
+
+    docksize=16G
+    dockname=fedora-23-docker-20160630
+    dockfile=${dockname:?}.qcow
+    dockgzip=${dockfile:?}.gz
+
+    wget "http://data.metagrid.co.uk/ischnura/base/${dockgzip:?}"
+
+    gunzip "${dockgzip:?}"
+
+#---------------------------------------------------------------------
+# Check the image contents.
+#[user@trop-01] 
+
+    sudo qemu-img \
+        info \
+        --backing-chain \
+        "${dockfile:?}"
+    
+#---------------------------------------------------------------------
+# Install our docker image.
+#[user@trop-01] 
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${dockfile:?}" \
+            "${docksize:?}" \
+            --format 'qcow2'
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${dockfile:?}" \
+            "${dockfile:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-list \
+            --pool "${basepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-list \
+            --pool "${livepool:?}"
+
+#---------------------------------------------------------------------
+# Create a test vm.
+#[user@trop-01] 
+
+    createvm
+
+    ssh "${vmname}"
+
+        #
+        # Run a database container. 
+        docker run \
+            --detach \
+            --name 'albert' \
+           'cosmopterix/pgsql'
+
+        #
+        # Login using the command line client.
+        docker exec \
+            --tty \
+            --interactive \
+            'albert' \
+            'pgsql-client'
+        
+            \q
+
+        exit
+
+        #
+        # Check the docker config
+        docker info
+
+            Containers: 1
+             Running: 1
+             Paused: 0
+             Stopped: 0
+            Images: 1
+            Server Version: 1.11.2
+            Storage Driver: btrfs
+             Build Version: Btrfs v4.4.1
+             Library Version: 101
+            Logging Driver: json-file
+            Cgroup Driver: cgroupfs
+            Plugins: 
+             Volume: local
+             Network: null host bridge
+            Kernel Version: 4.2.3-300.fc23.x86_64
+            Operating System: Fedora 23 (Twenty Three)
+            OSType: linux
+            Architecture: x86_64
+            CPUs: 2
+            Total Memory: 1.954 GiB
+            Name: amarna
+            ID: HQCQ:IG6Y:YG5Q:U2VC:UR6F:A7TF:GLLY:HTNK:EWRA:PEJ5:XXOI:Q5CO
+            Docker Root Dir: /var/lib/docker
+            Debug mode (client): false
+            Debug mode (server): false
+            Registry: https://index.docker.io/v1/
+
+
+#---------------------------------------------------------------------
+# Create a firethorn chain.
+#[user@trop-01] 
+
+
+
+
+

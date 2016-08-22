@@ -1,0 +1,350 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2016 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # If we want to be able to assign external addresses to some of the VMs.
+    # ...
+
+    #
+    # Can we just create a virtual bridge interface and use that ?
+    # ... or do we need to have a bridge interface on the pycical machine too ?
+    #
+
+    #
+    # Wary of breaking the network and not being able to get back in ..
+    # On the other hand, we do have four machines ;-)
+    #
+
+    #
+    # Experiment on a 2nd machine.
+    #
+
+    #
+    # https://jamielinux.com/docs/libvirt-networking-handbook/index.html
+    # https://www.howtoforge.com/virtualization-with-kvm-on-a-debian-squeeze-server
+    # https://wiki.debian.org/BridgeNetworkConnections
+    # https://wiki.debian.org/NetworkConfiguration
+
+#
+# TODO
+# Add virtinst
+# https://packages.debian.org/jessie/virtinst
+
+#---------------------------------------------------------------------
+# Install the KVM and libvirt tools.
+#[user@trop-02] 
+
+    #
+    # Install the packages.
+    sudo apt-get update
+    sudo apt-get install \
+        kvm \
+        qemu-kvm \
+        libvirt-bin \
+        virtinst
+
+    #
+    # Check the libvirt service.
+    sudo systemctl status libvirtd
+
+        * libvirtd.service - Virtualization daemon
+           Loaded: loaded (/lib/systemd/system/libvirtd.service; enabled)
+           Active: active (running) since Tue 2016-06-28 12:15:48 BST; 8min ago
+             Docs: man:libvirtd(8)
+                   http://libvirt.org
+         Main PID: 5805 (libvirtd)
+           CGroup: /system.slice/libvirtd.service
+                   └─5805 /usr/sbin/libvirtd
+
+#---------------------------------------------------------------------
+# Initial settings ....
+#[user@trop-02] 
+
+    : ${tempdir:='/tmp'}
+    : ${basepool:='base'}
+    : ${livepool:='live'}
+    : ${connection:='qemu:///system'}
+
+#---------------------------------------------------------------------
+# Add our user to the libvirt group.
+#[user@trop-01] 
+
+    sudo adduser $(id -un) libvirt
+
+#---------------------------------------------------------------------
+# Check our connection.
+#[user@trop-02] 
+
+    virsh \
+        --connect "${connection:?}" \
+        list --all
+
+         Id    Name                           State
+        ----------------------------------------------------
+        ----
+
+#---------------------------------------------------------------------
+# List the storage pools.
+#[user@trop-02] 
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-list
+
+         Name                 State      Autostart 
+        -------------------------------------------
+        ----
+
+#---------------------------------------------------------------------
+# Create our base pool.
+#[user@trop-02] 
+
+    basepath=/var/lib/libvirt/images/base
+
+    tmpxml=$(mktemp)
+cat > "${tmpxml:?}" << EOF
+<pool type="dir">
+    <name>${basepool:?}</name>
+    <target>
+        <path>${basepath:?}</path>
+    </target>
+</pool>
+EOF
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-define \
+            "${tmpxml:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-build \
+            "${basepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-start \
+            "${basepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-autostart \
+            "${basepool:?}"
+
+#---------------------------------------------------------------------
+# Create our live pool.
+#[user@trop-02] 
+
+    livepath=/var/lib/libvirt/images/live
+
+    tmpxml=$(mktemp)
+cat > "${tmpxml:?}" << EOF
+<pool type="dir">
+    <name>${livepool:?}</name>
+    <target>
+        <path>${livepath:?}</path>
+    </target>
+</pool>
+EOF
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-define \
+            "${tmpxml:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-build \
+            "${livepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-start \
+            "${livepool:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-autostart \
+            "${livepool:?}"
+
+#---------------------------------------------------------------------
+# List the storage pools.
+#[user@trop-02] 
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-list
+
+         Name                 State      Autostart 
+        -------------------------------------------
+         base                 active     yes       
+         live                 active     yes       
+
+#---------------------------------------------------------------------
+# List the network interfaces.
+#[user@trop-02] 
+
+    virsh \
+        --connect "${connection:?}" \
+        iface-list \
+            --all
+
+
+    virsh \
+        --connect "${connection:?}" \
+        net-list \
+            --all
+
+
+#---------------------------------------------------------------------
+# Check the current MAC address.
+#[user@trop-02] 
+
+    ip address show
+
+        1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default 
+            link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+            inet 127.0.0.1/8 scope host lo
+               valid_lft forever preferred_lft forever
+            inet6 ::1/128 scope host 
+               valid_lft forever preferred_lft forever
+        2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+            link/ether 0c:c4:7a:35:12:06 brd ff:ff:ff:ff:ff:ff
+            inet 192.168.137.233/24 brd 192.168.137.255 scope global eth0
+               valid_lft forever preferred_lft forever
+            inet6 fe80::ec4:7aff:fe35:1206/64 scope link 
+               valid_lft forever preferred_lft forever
+        3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+            link/ether 0c:c4:7a:35:12:07 brd ff:ff:ff:ff:ff:ff
+
+
+    ip address show dev eth0 | awk '$1=="link/ether" {print $2}'
+
+        0c:c4:7a:35:12:06
+
+    ip address show dev eth1 | awk '$1=="link/ether" {print $2}'
+
+        0c:c4:7a:35:12:07
+
+
+#---------------------------------------------------------------------
+# Create a bridged network interface.
+#[user@trop-02] 
+
+    sudo apt-get install bridge-utils
+
+    sudo vi /etc/network/interfaces
+
+        # The primary network interface
+    -   allow-hotplug eth0
+    -   iface eth0 inet static
+    -   iface eth0 inet manual
+    +
+    +   # The bridge interface
+    +   auto br0
+    +   iface br0 inet static
+    +       hwaddress 0c:c4:7a:35:12:06
+            address 192.168.137.233
+            netmask 255.255.255.0
+            network 192.168.137.0
+            broadcast 192.168.137.255
+            # dns-* options are implemented by the resolvconf package, if installed
+            dns-search roe.ac.uk
+    +       bridge_ports eth0
+    +       # Spanning Tree Protocol OFF.
+    +       bridge_stp off
+    +       # If STP is off, set to 0.
+    +       # If STP is on, set to >= 2.
+    +       bridge_fd 0
+
+
+#---------------------------------------------------------------------
+# Restart the network interfaces.
+#[user@trop-02] 
+
+    sudo -s
+    
+        ip address flush eth0 scope global && ifup br0
+
+#---------------------------------------------------------------------
+# Check the addresses.
+#[user@trop-02] 
+
+    ip address show
+
+        1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default 
+            link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+            inet 127.0.0.1/8 scope host lo
+               valid_lft forever preferred_lft forever
+            inet6 ::1/128 scope host 
+               valid_lft forever preferred_lft forever
+        2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master br0 state UP group default qlen 1000
+            link/ether 0c:c4:7a:35:12:06 brd ff:ff:ff:ff:ff:ff
+        3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+            link/ether 0c:c4:7a:35:12:07 brd ff:ff:ff:ff:ff:ff
+        4: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+            link/ether 0c:c4:7a:35:12:06 brd ff:ff:ff:ff:ff:ff
+            inet 192.168.137.233/24 brd 192.168.137.255 scope global br0
+               valid_lft forever preferred_lft forever
+            inet6 fe80::ec4:7aff:fe35:1206/64 scope link 
+               valid_lft forever preferred_lft forever
+
+#---------------------------------------------------------------------
+# Reboot to make sure.
+#[user@trop-02] 
+
+    sudo shutdown -r now
+
+    ....
+    ....
+    ...
+
+    No answer ...
+
+    Was this due to the network changes, or something else.
+    Should have done a reboot at the start to test.
+
+#---------------------------------------------------------------------
+# Reboot another machine to find out.
+#[root@trop-03] 
+    
+    sudo shutdown -r now
+
+    ....
+    ....
+    ...
+
+    Ok - trop-03 alive and well after reboot :-)
+    Suggests something wrong with the changes to trop-02 network :-(
+
+
+
+
+
+
+
+
+
+
+
+
+
