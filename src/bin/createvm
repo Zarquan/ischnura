@@ -112,7 +112,16 @@ done
 # Select the base volume.
 tempdat=$(mktemp)
 virsh --connect "${connection:?}" vol-list --pool "${basepool}" > "${tempdat}"
-readarray -t -s 2 lines < "${tempdat}"
+#readarray -t -s 2 lines < "${tempdat}"
+readarray -t lines < <(
+tac "${tempdat}" |
+sed '
+    /^ Name/ d    
+    /^----/ d    
+    /^$/ d    
+    '
+    )
+
 basepaths=()
 basenames=()
 for ((index = 0 ; index < ${#lines[@]} ; index++))
