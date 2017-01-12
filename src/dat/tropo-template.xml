@@ -2,7 +2,7 @@
   <name></name>
   <uuid></uuid>
   <memory unit='GiB'>4</memory>
-  <vcpu placement='static'>2</vcpu>
+  <vcpu placement='static'>4</vcpu>
   <resource>
     <partition>/machine</partition>
   </resource>
