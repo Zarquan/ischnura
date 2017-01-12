@@ -109,9 +109,10 @@ do
 done
 
 #
-# Select the base volume.
+# List the available base volumes.
+# Sort added to filter duplicates (https://github.com/Zarquan/ischnura-kvm/issues/14).
 tempdat=$(mktemp)
-virsh --connect "${connection:?}" vol-list --pool "${basepool}" > "${tempdat}"
+virsh --connect "${connection:?}" vol-list --pool "${basepool}" | sort --unique > "${tempdat}"
 #readarray -t -s 2 lines < "${tempdat}"
 readarray -t lines < <(
 tac "${tempdat}" |
@@ -135,6 +136,8 @@ do
     fi
 done
 
+#
+# Select the base volume
 echo ""
 #echo "Available base images"
 for ((index = 0 ; index < ${#basenames[@]} ; index++))
