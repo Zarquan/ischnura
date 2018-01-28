@@ -1,0 +1,233 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+text
+skipx
+install
+
+url  --mirrorlist "http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch"
+repo --name fedora
+repo --name updates
+repo --name docker --baseurl "https://download.docker.com/linux/fedora/$releasever/$basearch/stable"
+
+zerombr
+bootloader --location=mbr --boot-drive=vda
+
+clearpart --all --initlabel
+partition /boot   --type ext4  --size 256  --label boot
+partition swap    --type swap  --size 1024 --label swap
+partition btrfs.1 --type btrfs --grow      --label system
+
+btrfs none --data single --label system btrfs.1
+btrfs /    --subvol --name root system
+
+network  --bootproto=dhcp --device=ens3 --ipv6=auto --activate
+network  --hostname=localhost.localdomain
+
+firstboot --disable
+
+selinux   --permissive
+firewall  --enable --ssh
+
+shutdown
+
+lang en_GB.UTF-8
+timezone Europe/London
+
+#
+# Root user (disabled)
+rootpw --iscrypted $6$rhfed05N$22N1s4OvAjDFYFoclbBiDe4VCH0aoL2lkeJpP1sRYIuEYN2dNz6jX.HhqlSM9EHWjld8ngr2tIgksOiVWIHOh1
+
+%packages
+
+# OpenStack cloud-init
+# https://docs.openstack.org/image-guide/fedora-image.html
+acpid
+cloud-init
+cloud-utils-growpart
+
+# Developer tools
+svn
+git
+mercurial
+
+# Text editors
+sed
+vim
+nano
+gawk
+grep
+
+# Archive tools
+tar
+zip
+gzip
+
+# Data access
+wget
+curl
+
+# System admin
+sudo
+htop
+pwgen
+
+# Network admin
+iputils
+net-tools
+bind-utils
+
+# Time source
+ntp
+
+# Entropy source
+haveged
+
+# Docker tools
+#docker-engine
+#docker-compose
+
+# Required for selinux-dockersock
+checkpolicy
+policycoreutils
+policycoreutils-python
+policycoreutils-python-utils
+
+%end
+
+%pre
+%end
+
+%post
+
+#
+# Disable SELinux for now ..
+# setenforce Permissive
+
+#
+# Enable cloud-init
+# We should not need to do this, it should already be done by the rpm install.
+# https://github.com/fedora-cloud/cloud-init/blob/master/cloud-init.spec#L113
+systemctl enable cloud-config.service
+systemctl enable cloud-final.service
+systemctl enable cloud-init.service
+systemctl enable cloud-init-local.service
+
+#
+# Install yawn-yaml-cli
+# dnf install npm
+# npm install yawn-yaml-cli --global
+
+#
+# Comment out the default users: section.
+# https://docs.openstack.org/image-guide/fedora-image.html
+sed -i '
+    /^users:/,/^[^ ]/ {
+        /^users:/ {
+            s/\(.*\)/#\1/
+            }
+        /^[^ ]/ !{
+            s/\(.*\)/#\1/
+            }
+        }
+    ' /etc/cloud/cloud.cfg
+
+#
+# Configure our cloud-init user accounts.
+# https://docs.openstack.org/image-guide/fedora-image.html
+cat >> /etc/cloud/cloud.cfg.d/10-users.cfg << 'EOF'
+
+groups:
+  - docker
+
+users:
+  - name: Stevedore
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    groups: [users, wheel, docker]
+    shell: /bin/bash
+  - name: Ham
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    groups: [users, wheel, docker]
+    shell: /bin/bash
+    passwd: $6$rhfed05N$22N1s4OvAjDFYFoclbBiDe4VCH0aoL2lkeJpP1sRYIuEYN2dNz6jX.HhqlSM9EHWjld8ngr2tIgksOiVWIHOh1
+
+EOF
+
+#
+# Disable the default zeroconf route.
+# https://docs.openstack.org/image-guide/fedora-image.html
+echo "NOZEROCONF=yes" >> /etc/sysconfig/network
+
+#
+# Disable password login.
+# http://redmine.roe.ac.uk/issues/1010
+sed -i '
+    s/^\(PasswordAuthentication\).*$/\1 no/
+    ' /etc/ssh/sshd_config
+
+#
+# Add the Docker CE repo.
+dnf -y config-manager \
+    --add-repo \
+    https://download.docker.com/linux/fedora/docker-ce.repo
+
+#
+# Update the cache.
+dnf -y makecache fast
+
+#
+# Install docker CE.
+dnf -y install docker-ce
+
+#
+# Install docker-compose from GitHub
+curl -s -L https://github.com/docker/compose/releases/download/1.16.1/docker-compose-`uname -s`-`uname -m` > /usr/bin/docker-compose
+chmod +x /usr/bin/docker-compose
+
+#
+# Install the dockersock SELinux policy.
+# https://github.com/dpw/selinux-dockersock
+pushd $(mktemp -d)
+  wget https://raw.githubusercontent.com/dpw/selinux-dockersock/master/dockersock.te
+  checkmodule -M -m -o dockersock.mod dockersock.te
+  semodule_package -m dockersock.mod -o dockersock.pp
+  semodule -i dockersock.pp
+popd
+
+#
+# Configure NTP server.
+cat >> /etc/ntp.conf << EOF
+#
+# EdLAN NTP server
+# http://www.ed.ac.uk/information-services/computing/computing-infrastructure/network/ntp
+server 129.215.205.191
+EOF
+
+#
+# Enable our services.
+systemctl enable ntpd
+systemctl enable acpid
+systemctl enable docker
+systemctl enable haveged
+
+%end
+
