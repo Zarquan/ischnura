@@ -120,10 +120,6 @@ policycoreutils-python-utils
 %post
 
 #
-# Disable SELinux for now ..
-# setenforce Permissive
-
-#
 # Enable cloud-init
 # We should not need to do this, it should already be done by the rpm install.
 # https://github.com/fedora-cloud/cloud-init/blob/master/cloud-init.spec#L113
@@ -140,36 +136,33 @@ systemctl enable cloud-init-local.service
 #
 # Comment out the default users: section.
 # https://docs.openstack.org/image-guide/fedora-image.html
-sed -i '
-    /^users:/,/^[^ ]/ {
-        /^users:/ {
-            s/\(.*\)/#\1/
-            }
-        /^[^ ]/ !{
-            s/\(.*\)/#\1/
-            }
-        }
-    ' /etc/cloud/cloud.cfg
+#sed -i '
+#    /^users:/,/^[^ ]/ {
+#        /^users:/ {
+#            s/\(.*\)/#\1/
+#            }
+#        /^[^ ]/ !{
+#            s/\(.*\)/#\1/
+#            }
+#        }
+#    ' /etc/cloud/cloud.cfg
+#
 
 #
 # Configure our cloud-init user accounts.
 # https://docs.openstack.org/image-guide/fedora-image.html
 cat >> /etc/cloud/cloud.cfg.d/10-users.cfg << 'EOF'
+#cloud-config
 
 groups:
   - docker
 
 users:
   - name: Stevedore
+    gecos: Docker deployer account
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
     groups: [users, wheel, docker]
     shell: /bin/bash
-  - name: Ham
-    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-    groups: [users, wheel, docker]
-    shell: /bin/bash
-    passwd: $6$rhfed05N$22N1s4OvAjDFYFoclbBiDe4VCH0aoL2lkeJpP1sRYIuEYN2dNz6jX.HhqlSM9EHWjld8ngr2tIgksOiVWIHOh1
-
 EOF
 
 #
@@ -212,15 +205,6 @@ pushd $(mktemp -d)
   semodule_package -m dockersock.mod -o dockersock.pp
   semodule -i dockersock.pp
 popd
-
-#
-# Configure NTP server.
-cat >> /etc/ntp.conf << EOF
-#
-# EdLAN NTP server
-# http://www.ed.ac.uk/information-services/computing/computing-infrastructure/network/ntp
-server 129.215.205.191
-EOF
 
 #
 # Enable our services.

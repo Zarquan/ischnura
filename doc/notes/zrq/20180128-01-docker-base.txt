@@ -1,0 +1,290 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2017 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Check version of virt-install.
+#[user@trop03]
+
+    virt-install --version
+
+        1.4.0
+
+#---------------------------------------------------------------------
+# Build settings
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+    basecpu=4
+    basemem=4096
+    basesize=16G
+    basearch=x86_64
+
+    basever=27
+    basedate=$(date +%Y%m%d)
+    basedist=fedora-${basever:?}
+    basename=${basedist}-docker-base-${basedate:?}
+    basefile=${basename}.qcow
+    basegzip=${basefile}.gz
+
+    kickstartfile=fedora-docker-base.txt
+    kickstarthref=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/${kickstartfile:?}
+
+#---------------------------------------------------------------------
+# Delete any existing VM image.
+#[user@trop03]
+
+   virsh \
+       --connect "${connection:?}" \
+       undefine "${basename:?}"
+
+#---------------------------------------------------------------------
+# Delete any existing volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${basefile:?}"
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${basefile:?}" \
+            "${basesize:?}" \
+            --format qcow2
+
+#---------------------------------------------------------------------
+# Set a MAC address to match our DHCP range.
+#[user@trop03]
+
+    macaddress='52:54:00:02:03:0F'
+
+#---------------------------------------------------------------------
+# Create a new VM image by installing the Fedora boot image.
+#[user@trop03]
+
+    virt-install \
+        --noreboot \
+        --name       "${basename:?}" \
+        --disk       "vol=${basepool:?}/${basefile:?}" \
+        --vcpus      "${basecpu:?}" \
+        --memory     "${basemem:?}" \
+        --network    "network=default,mac=${macaddress:?}" \
+        --connect    "${connection:?}" \
+        --location   "https://download.fedoraproject.org/pub/fedora/linux/releases/${basever}/Server/${basearch}/os" \
+        --extra-args "inst.ks=${kickstarthref:?}"
+
+#---------------------------------------------------------------------
+# Check the file info.
+#[user@trop03]
+
+    basepath=$(
+        virsh \
+            --connect "${connection:?}" \
+            vol-path \
+                --pool "${basepool:?}" \
+                "${basefile:?}"
+                )
+
+    sudo qemu-img \
+        info \
+            "${basepath:?}"
+
+        image: /var/lib/libvirt/images/base/fedora-27-docker-base-20180128.qcow
+        file format: qcow2
+        virtual size: 16G (17179869184 bytes)
+        disk size: 2.0G
+        cluster_size: 65536
+        Format specific information:
+            compat: 0.10
+            refcount bits: 16
+
+#---------------------------------------------------------------------
+# Create a compressed copy of the image.
+#[user@trop03]
+
+    tempfile=$(mktemp)
+    sudo qemu-img \
+        convert \
+            -c \
+            -O qcow2 \
+            "${basepath:?}" \
+            "${tempfile:?}"
+
+    sudo qemu-img \
+        info \
+            "${tempfile:?}"
+
+        image: /tmp/tmp.VvRd7x2bzI
+        file format: qcow2
+        virtual size: 16G (17179869184 bytes)
+        disk size: 813M
+        cluster_size: 65536
+        Format specific information:
+            compat: 1.1
+            lazy refcounts: false
+            refcount bits: 16
+            corrupt: false
+
+#---------------------------------------------------------------------
+# Delete the virtual machine.
+#[user@trop03]
+
+   virsh \
+       --connect "${connection:?}" \
+       undefine "${basename:?}"
+
+#---------------------------------------------------------------------
+# Delete the uncompressed volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${basefile:?}"
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${basefile:?}" \
+            "${basesize:?}" \
+            --format 'qcow2'
+
+#---------------------------------------------------------------------
+# Upload the compressed copy into the new volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${basefile:?}" \
+            "${tempfile:?}"
+
+#---------------------------------------------------------------------
+# Delete the compressed copy.
+#[user@desktop]
+
+    rm "${tempfile:?}"
+
+
+
+
+
+
+
+
+
+#---------------------------------------------------------------------
+# Create our cloud-init metadata files.
+# https://linux.die.net/man/1/genisoimage
+# http://blog.oddbit.com/2015/03/10/booting-cloud-images-with-libvirt/
+#[user@trop03]
+
+    nodename=Umiawyth
+
+    sshkey=$(cat ${HOME}/.ssh/authorized_keys)
+
+    mkdir ${HOME}/ischnura
+    pushd ${HOME}/ischnura
+
+        cat > meta-data << EOF
+#cloud-config
+public-keys:
+  - ${sshkey}
+EOF
+
+        cat > user-data << EOF
+#cloud-config
+users:
+  - default
+  - name: $(id -un)
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    groups: [users, wheel, docker]
+    shell: /bin/bash
+    ssh-authorized-keys:
+        - ${sshkey}
+EOF
+
+        genisoimage \
+            -rock \
+            -joliet \
+            -volid 'cidata' \
+            -input-charset 'utf-8' \
+            -output "${nodename:?}.iso" \
+            meta-data \
+            user-data
+
+    popd
+    
+#---------------------------------------------------------------------
+# Add the config file to our VM before it is started.
+# https://docs-old.fedoraproject.org/en-US/Fedora/18/html/Virtualization_Administration_Guide/sect-Attaching_and_updating_a_device_with_virsh.html
+#[user@trop03]
+
+    createvm ....
+    
+    virsh \
+        --connect "${connection:?}" \
+        attach-disk \
+            ${nodename:?} \
+            $(pwd)/${nodename:?}.iso \
+            vdb \
+            --config \
+            --driver qemu \
+            --type  cdrom \
+            --mode  readonly
+
+    virsh \
+        --connect "${connection:?}" \
+        dumpxml "${nodename:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        start "${nodename:?}"
+
+
+
+
+
+# TODO Use xmlstarlet to edit the xml file.
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='/home/dmr/ischnura/kellog.iso'/>
+      <target dev='vdb' bus='virtio'/>
+      <readonly/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+    </disk>
+
