@@ -1,4 +1,4 @@
-ischnura-kvm
+ischnura
 ============
 
-Shell scripts to manage KVM 
+Tools to manage KVM virtual machines. 
