@@ -1,0 +1,393 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2017 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Configure project settings.
+#[user@trop]
+
+    if [ ! -e "${HOME}/projects.settings" ]
+    then
+    cat > "${HOME}/projects.settings" << EOF
+
+projectbase='/var/local/projects'
+
+EOF
+    fi
+
+# -----------------------------------------------------
+# Configure ischnura settings.
+#[user@trop]
+
+    if [ ! -e "${HOME}/ischnura.settings" ]
+    then
+    cat > "${HOME}/ischnura.settings" << EOF
+
+source "\${HOME}/projects.settings"
+
+tempdir='/tmp'
+
+basepool='base'
+basepath='/var/lib/libvirt/images/base'
+
+livepool='live'
+livepath='/var/lib/libvirt/images/live'
+
+datapool='data'
+datapath='/data1/libvirt/images/live'
+
+connection='qemu:///system'
+
+ischname='ischnura'
+ischbase="\${projectbase:?}/\${ischname:?}"
+ischcode="\${ischbase:?}/github"
+
+ischrepo='git@github.com:Zarquan/ischnura-kvm.git'
+
+EOF
+    fi
+    
+# -----------------------------------------------------
+# Configure our PATH.
+#[user@trop]
+
+    vi "${HOME:?}/.bashrc"
+
+        #
+        # Add the Ischnura path.
+        if [[ ! ${PATH:?} == *"ischnura"* ]]
+        then
+            export PATH=${PATH}:/var/local/projects/ischnura/github/src/bin
+        fi
+
+    source "${HOME:?}/.bashrc"
+
+# -----------------------------------------------------
+# Update the ischnura source code.
+#[user@trop]
+
+    source "${HOME}/ischnura.settings"
+
+    echo "Checking ischnura code [${ischcode:?}]"
+    if [ -e ${ischcode:?} ]
+    then
+        echo "Updating ischnura code [${ischcode:?}]"
+        pushd ${ischcode:?}
+            git pull
+        popd
+    else
+        echo "Cloning ischnura code [${ischrepo:?}]"
+        mkdir -p $(dirname ${ischcode:?})
+        pushd $(dirname ${ischcode:?})
+            git clone ${ischrepo:?} $(basename ${ischcode:?})
+        popd
+    fi
+        
+# -----------------------------------------------------
+# Configure the ischnura source code.
+#[user@trop]
+
+    source "${HOME}/ischnura.settings"
+    
+    cat > "${ischcode:?}/src/config" << EOF
+
+machines=\${datpath:?}/tropo-machines.txt
+template=\${datpath:?}/tropo-template.xml
+
+EOF
+
+# -----------------------------------------------------
+# Create our base storage pool.
+# https://www.redhat.com/archives/libvirt-users/2010-August/msg00042.html
+#[user@trop]
+
+    source "${HOME}/ischnura.settings"
+
+    basexml=$(mktemp)
+    cat > "${basexml:?}" << EOF
+<pool type='dir'>
+  <name>${basepool:?}</name>
+  <target>
+    <path>${basepath:?}</path>
+  </target>
+</pool>
+EOF
+
+    #
+    # Define the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-define "${basexml:?}"
+
+    #
+    # Check the pool list.
+    virsh \
+        -c "${connection:?}" \
+        pool-list --all
+
+         Name                 State      Autostart 
+        -------------------------------------------
+         base                 inactive   no        
+
+    #
+    # Check the pool XML.
+    virsh \
+        -c "${connection:?}" \
+        pool-dumpxml "${basepool:?}"
+
+    #
+    # Check the pool info.
+    virsh \
+        -c "${connection:?}" \
+        pool-info "${basepool:?}"
+
+    #
+    # Build the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-build "${basepool:?}"
+
+    #
+    # Start the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-start "${basepool:?}"
+
+    #
+    # Configure the pool autostart.
+    virsh \
+        -c "${connection:?}" \
+        pool-autostart "${basepool:?}"
+
+    #
+    # Check the pool XML.
+    virsh \
+        -c "${connection:?}" \
+        pool-dumpxml "${basepool:?}"
+
+    #
+    # Check the pool info.
+    virsh \
+        -c "${connection:?}" \
+        pool-info "${basepool:?}"
+
+# -----------------------------------------------------
+# Create our live data storage pool.
+#[user@trop]
+
+    source "${HOME}/ischnura.settings"
+
+    livexml=$(mktemp)
+    
+    cat > "${livexml:?}" << EOF
+<pool type='dir'>
+  <name>${livepool:?}</name>
+  <target>
+    <path>${livepath:?}</path>
+  </target>
+</pool>
+EOF
+
+    #
+    # Define the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-define "${livexml:?}"
+
+    #
+    # Check the pool list.
+    virsh \
+        -c "${connection:?}" \
+        pool-list --all
+
+         Name                 State      Autostart 
+        -------------------------------------------
+         base                 active     yes       
+         live                 inactive   no        
+
+    #
+    # Check the pool XML.
+    virsh \
+        -c "${connection:?}" \
+        pool-dumpxml "${livepool:?}"
+
+    #
+    # Check the pool info.
+    virsh \
+        -c "${connection:?}" \
+        pool-info "${livepool:?}"
+
+    #
+    # Build the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-build "${livepool:?}"
+
+    #
+    # Start the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-start "${livepool:?}"
+
+    #
+    # Configure the pool autostart.
+    virsh \
+        -c "${connection:?}" \
+        pool-autostart "${livepool:?}"
+
+    #
+    # Check the pool XML.
+    virsh \
+        -c "${connection:?}" \
+        pool-dumpxml "${livepool:?}"
+
+    #
+    # Check the pool info.
+    virsh \
+        -c "${connection:?}" \
+        pool-info "${livepool:?}"
+
+# -----------------------------------------------------
+# Download and install our base images.
+#[user@trop]
+
+    imagename=fedora-25-docker-32G-20170331
+    imageqcow=${imagename:?}.qcow
+    imagegzip=${imageqcow:?}.gz
+
+    wget "http://data.metagrid.co.uk/ischnura/base/${imagegzip:?}"
+
+    gunzip "${imagegzip:?}"
+
+#---------------------------------------------------------------------
+# Check the image contents.
+#[user@trop]
+
+    qemu-img \
+        info \
+        --output json \
+        "${imageqcow:?}" \
+        | jq '.'
+
+
+        {
+        "virtual-size": 34359738368,
+        "filename": "fedora-25-docker-32G-20170331.qcow",
+        "cluster-size": 65536,
+        "format": "qcow2",
+        "actual-size": 760274944,
+        "format-specific": {
+            "type": "qcow2",
+            "data": {
+                "compat": "1.1",
+                "lazy-refcounts": false
+                }
+            },
+        "dirty-flag": false
+        }
+
+#---------------------------------------------------------------------
+# Get the image size.
+#[user@trop]
+
+    imagesize=$(
+        qemu-img \
+            info \
+            --output json \
+            "${imageqcow:?}" |
+                jq '.["virtual-size"]'
+                )
+
+    echo "Size [${imagesize:?}]"
+    
+#---------------------------------------------------------------------
+# Install our base image.
+#[user@trop]
+
+    source "${HOME}/ischnura.settings"
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${imagename:?}" \
+            "${imagesize:?}" \
+            --format 'qcow2'
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${imagename:?}" \
+            "${imageqcow:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-list \
+            --pool "${basepool:?}"
+
+#---------------------------------------------------------------------
+# Remove the local copy.
+#[user@trop] 
+
+    rm "${imageqcow:?}"
+
+#---------------------------------------------------------------------
+# Create a new virtual machine.
+#[user@trop] 
+
+    createvm
+
+        INFO : Node name [Wumar]
+        INFO : Base name [fedora-25-docker-32G-20170331]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-25-docker-32G-20170331]
+        INFO : Disc name [Wumar.qcow]
+        INFO : Disc size [32GiB]
+
+# -----------------------------------------------------
+# TODO fix .ssh directory for Stevedore.
+#[user@trop]
+
+    ssh root@Wumar
+
+        rm -f /home/Stevedore/.ssh
+        cp -r /root/.ssh /home/Stevedore/.ssh
+        chown -R Stevedore /home/Stevedore/.ssh
+        chgrp -R Stevedore /home/Stevedore/.ssh
+        restorecon -R /home/Stevedore/.ssh
+
+        exit
+    
+# -----------------------------------------------------
+# Login as root and update the system.
+#[user@trop]
+
+    ssh root@Wumar
+
+        dnf -y update
+
+# -----------------------------------------------------
+# Login as Stevedore.
+#[user@trop]
+
+    ssh Stevedore@Wumar
+
+
