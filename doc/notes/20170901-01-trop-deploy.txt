@@ -1,0 +1,72 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2017 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Install the new image.
+#[user@shep] 
+#[user@trop01] 
+#[user@trop02] 
+#[user@trop03] 
+
+    source "${HOME}/ischnura.settings"
+
+    basecpu=4
+    basemem=4096
+    basesize=16G
+    basearch=x86_64
+
+    basever=25
+    basedist=fedora-${basever:?}
+    basedate=20170713
+    basename=${basedist}-base-${basesize}-${basedate:?}
+    basefile=${basename}.qcow
+    basegzip=${basefile}.gz
+
+    docksize=${basesize:?}
+    dockdate=${basedate:?}
+    dockname=${basedist}-docker-${docksize:?}-${dockdate:?}
+    dockfile=${dockname}.qcow
+    dockgzip=${dockfile}.gz
+
+    wget \
+        -O "${dockgzip:?}" \
+        "http://data.metagrid.co.uk/ischnura/base/${dockgzip:?}"
+
+    gunzip "${dockgzip:?}"
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${dockfile:?}" \
+            "${docksize:?}" \
+            --format 'qcow2'
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${dockfile:?}" \
+            "${dockfile:?}"
+
+    rm "${dockfile:?}"
+
