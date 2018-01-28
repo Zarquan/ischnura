@@ -129,34 +129,10 @@ systemctl enable cloud-init.service
 systemctl enable cloud-init-local.service
 
 #
-# Install yawn-yaml-cli
-# dnf install npm
-# npm install yawn-yaml-cli --global
-
-#
-# Comment out the default users: section.
-# https://docs.openstack.org/image-guide/fedora-image.html
-#sed -i '
-#    /^users:/,/^[^ ]/ {
-#        /^users:/ {
-#            s/\(.*\)/#\1/
-#            }
-#        /^[^ ]/ !{
-#            s/\(.*\)/#\1/
-#            }
-#        }
-#    ' /etc/cloud/cloud.cfg
-#
-
-#
-# Configure our cloud-init user accounts.
+# Configure our cloud-init user account.
 # https://docs.openstack.org/image-guide/fedora-image.html
 cat >> /etc/cloud/cloud.cfg.d/10-users.cfg << 'EOF'
 #cloud-config
-
-groups:
-  - docker
-
 users:
   - name: Stevedore
     gecos: Docker deployer account

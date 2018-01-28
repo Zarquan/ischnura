@@ -141,10 +141,10 @@
         info \
             "${tempfile:?}"
 
-        image: /tmp/tmp.VvRd7x2bzI
+        image: /tmp/tmp.bP4QTkW2Xx
         file format: qcow2
         virtual size: 16G (17179869184 bytes)
-        disk size: 813M
+        disk size: 810M
         cluster_size: 65536
         Format specific information:
             compat: 1.1
@@ -215,27 +215,47 @@
 
     nodename=Umiawyth
 
-    sshkey=$(cat ${HOME}/.ssh/authorized_keys)
-
     mkdir ${HOME}/ischnura
     pushd ${HOME}/ischnura
+
+#
+# Use the authorized keys for the current user to
+# set the authorized keys for the default user.
 
         cat > meta-data << EOF
 #cloud-config
 public-keys:
-  - ${sshkey}
+$(sed -n '
+    /^#/ !{
+        s/\(.*\)/  - \1/p
+        }
+    ' ${HOME}/.ssh/authorized_keys 
+    )
+EOF
+
+#
+# Create a config for the current user,
+# including their ssh authorized keys.
+
+        cat > user-data << EOF
+#cloud-config
 EOF
 
         cat > user-data << EOF
 #cloud-config
+EOF
 users:
-  - default
   - name: $(id -un)
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
     groups: [users, wheel, docker]
     shell: /bin/bash
     ssh-authorized-keys:
-        - ${sshkey}
+$(sed -n '
+    /^#/ !{
+        s/\(.*\)/      - \1/p
+        }
+    ' ~/.ssh/authorized_keys 
+    )
 EOF
 
         genisoimage \
@@ -248,19 +268,33 @@ EOF
             user-data
 
     popd
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
     
 #---------------------------------------------------------------------
 # Add the config file to our VM before it is started.
 # https://docs-old.fedoraproject.org/en-US/Fedora/18/html/Virtualization_Administration_Guide/sect-Attaching_and_updating_a_device_with_virsh.html
 #[user@trop03]
 
-    createvm ....
+    createvm
     
     virsh \
         --connect "${connection:?}" \
         attach-disk \
             ${nodename:?} \
-            $(pwd)/${nodename:?}.iso \
+            ${HOME}/ischnura/${nodename:?}.iso \
             vdb \
             --config \
             --driver qemu \
@@ -280,9 +314,9 @@ EOF
 
 
 # TODO Use xmlstarlet to edit the xml file.
-    <disk type='file' device='cdrom'>
+    <disk type='block' device='cdrom'>
       <driver name='qemu' type='raw'/>
-      <source file='/home/dmr/ischnura/kellog.iso'/>
+      <source dev='/home/dmr/Umiawyth.iso'/>
       <target dev='vdb' bus='virtio'/>
       <readonly/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
