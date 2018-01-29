@@ -49,6 +49,46 @@
     kickstartfile=fedora-docker-base.txt
     kickstarthref=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/${kickstartfile:?}
 
+
+#---------------------------------------------------------------------
+# Create the cloud-init volume pool.
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+initpool='init'
+initpath='/var/lib/libvirt/images/init'
+
+    initxml=$(mktemp)
+    cat > "${initxml:?}" << EOF
+<pool type='dir'>
+  <name>${initpool:?}</name>
+  <target>
+    <path>${initpath:?}</path>
+  </target>
+</pool>
+EOF
+
+   virsh \
+       --connect "${connection:?}" \
+        pool-define "${initxml:?}"
+
+    virsh \
+        -c "${connection:?}" \
+        pool-build "${initpool:?}"
+
+    virsh \
+        -c "${connection:?}" \
+        pool-start "${initpool:?}"
+
+    virsh \
+        -c "${connection:?}" \
+        pool-autostart "${initpool:?}"
+
+    virsh \
+        -c "${connection:?}" \
+        pool-info "${initpool:?}"
+
 #---------------------------------------------------------------------
 # Delete any existing VM image.
 #[user@trop03]
@@ -213,8 +253,6 @@
 # http://blog.oddbit.com/2015/03/10/booting-cloud-images-with-libvirt/
 #[user@trop03]
 
-    nodename=Umiawyth
-
     mkdir ${HOME}/ischnura
     pushd ${HOME}/ischnura
 
@@ -243,7 +281,6 @@ EOF
 
         cat > user-data << EOF
 #cloud-config
-EOF
 users:
   - name: $(id -un)
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
@@ -258,52 +295,88 @@ $(sed -n '
     )
 EOF
 
+        inittemp=$(mktemp)
         genisoimage \
             -rock \
             -joliet \
             -volid 'cidata' \
             -input-charset 'utf-8' \
-            -output "${nodename:?}.iso" \
+            -output "${inittemp:?}" \
             meta-data \
             user-data
 
     popd
 
 
+#---------------------------------------------------------------------
+# Config file settings.
+#[user@trop03]
 
+    nodename=Umiawyth
+    initfile=${nodename:?}.init
+    initsize=$(du -k "${inittemp:?}" | cut -f1)k
 
+#---------------------------------------------------------------------
+# Delete any existing volume.
+#[user@trop03]
 
+    virsh \
+        --connect "${connection:?}" \
+        vol-delete \
+            --pool "${initpool}" \
+            "${initfile:?}"
 
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop03]
 
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${initpool:?}" \
+            "${initfile:?}" \
+            "${initsize:?}" \
+            --format 'qcow2'
 
+#---------------------------------------------------------------------
+# Upload the ISO image into the new volume.
+#[user@trop03]
 
-    
+    virsh \
+        --connect "${connection:?}" \
+        vol-upload \
+            --pool "${initpool:?}" \
+            "${initfile:?}" \
+            "${inittemp:?}"
 
+    rm "${inittemp:?}"
 
-
-
-    
 #---------------------------------------------------------------------
 # Add the config file to our VM before it is started.
 # https://docs-old.fedoraproject.org/en-US/Fedora/18/html/Virtualization_Administration_Guide/sect-Attaching_and_updating_a_device_with_virsh.html
 #[user@trop03]
 
     createvm
+
+    initpath=$(
+        virsh \
+        --connect "${connection:?}" \
+        vol-path \
+            --pool "${initpool:?}" \
+            "${initfile:?}"
+        )
     
     virsh \
         --connect "${connection:?}" \
         attach-disk \
-            ${nodename:?} \
-            ${HOME}/ischnura/${nodename:?}.iso \
-            vdb \
+            "${nodename:?}" \
+            "${initpath:?}" \
+            'vdb' \
             --config \
             --driver qemu \
-            --type  cdrom \
-            --mode  readonly
+            --type   cdrom \
+            --mode   readonly
 
-    virsh \
-        --connect "${connection:?}" \
-        dumpxml "${nodename:?}"
 
     virsh \
         --connect "${connection:?}" \
@@ -311,7 +384,42 @@ EOF
 
 
 
+Stevedore in 10-users.cfg
 
+
+
+    ssh "dmr@${nodename:?}"       date -- works fine
+    ssh "root@${nodename:?}"      date -- not allowed
+
+    ssh "fedora@${nodename:?}"    date -- not created
+    ssh "Stevedore@${nodename:?}" date -- not created
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    virsh \
+        --connect "${connection:?}" \
+        dumpxml "${nodename:?}"
+    
 
 # TODO Use xmlstarlet to edit the xml file.
     <disk type='block' device='cdrom'>
@@ -321,4 +429,21 @@ EOF
       <readonly/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
     </disk>
+
+
+
+
+
+sed '
+    /^system_info:/,/^$/ {
+        /^[[:space:]]\{2\}default_user:/,/^[[:space:]]\{2\}[[:alnum:]]/ {
+            /^[[:space:]]\{4\}/ {
+                s/name:.*/name:Stevedore/
+                s/gecos:.*/gecos:Docker deployer/
+                s/groups:.*/[wheel, adm, systemd-journal, users, docker]/
+                }
+            }
+        }
+    ' /etc/cloud/cloud.cfg
+
 
