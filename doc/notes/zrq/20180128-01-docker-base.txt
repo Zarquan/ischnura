@@ -54,7 +54,6 @@
 # Create the cloud-init volume pool.
 #[user@trop03]
 
-    source "${HOME}/ischnura.settings"
 
 initpool='init'
 initpath='/var/lib/libvirt/images/init'
@@ -234,7 +233,7 @@ EOF
             "${tempfile:?}"
 
 #---------------------------------------------------------------------
-# Delete the compressed copy.
+# Delete the temp copy.
 #[user@desktop]
 
     rm "${tempfile:?}"
@@ -325,11 +324,22 @@ EOF
     isosize=$(du -k "${isofile:?}" | cut -f1)
     isoname=${nodename:?}.iso
 
-    virsh \
-        --connect "${connection:?}" \
-        vol-delete \
-            --pool "${initpool}" \
-            "${isoname:?}"
+    isouuid=$(
+        virsh \
+            --connect "${connection:?}" \
+            vol-key "${isoname:?}" \
+            --pool  "${initpool}"  \
+            2>/dev/null
+            )
+
+    if [ -n "${isouuid}" ]
+        then
+            virsh \
+                --connect "${connection:?}" \
+                vol-delete \
+                    --pool "${initpool}" \
+                    "${isoname:?}"
+        fi
 
 #---------------------------------------------------------------------
 # Create a new (empty) volume.
@@ -386,6 +396,10 @@ EOF
         --connect "${connection:?}" \
         start "${nodename:?}"
 
+    virsh \
+        --connect "${connection:?}" \
+        dumpxml "${nodename:?}"
+
 --------------------------------------------------
 
 Stevedore in 10-users.cfg
@@ -419,9 +433,23 @@ dmr in user-data
 
 Stevedore as default in cloud.cfg
 empty 10-users.cfg
+empty user-data
 
+    ssh "dmr@${nodename:?}"       date ## denied
+    ssh "root@${nodename:?}"      date ## denied
 
+    ssh "fedora@${nodename:?}"    date ## denied
+    ssh "Stevedore@${nodename:?}" date ## denied
 
+Stevedore as default in cloud.cfg
+default in user-data
+dmr in user-data
+
+    ssh "dmr@${nodename:?}"       date ## denied
+    ssh "root@${nodename:?}"      date ## denied
+
+    ssh "fedora@${nodename:?}"    date ## denied
+    ssh "Stevedore@${nodename:?}" date ## denied
 
 
 
@@ -449,6 +477,15 @@ empty 10-users.cfg
       <readonly/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
     </disk>
+
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='/var/lib/libvirt/images/init/Umiawyth.iso'/>
+      <target dev='vdb' bus='virtio'/>
+      <readonly/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+    </disk>
+
 
 
 
