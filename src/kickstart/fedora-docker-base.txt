@@ -149,9 +149,9 @@ sed -i '
     /^system_info:/,/^$/ {
         /^[[:space:]]\{2\}default_user:/,/^[[:space:]]\{2\}[[:alnum:]]/ {
             /^[[:space:]]\{4\}/ {
-                s/name:. */name: Stevedore/
-                s/gecos: .*/gecos: Docker deployer/
-                s/groups: .*/groups: [wheel, adm, systemd-journal, users, docker]/
+                s/name:.*$/name: Stevedore/
+                s/gecos:.*$/gecos: Docker deployer/
+                s/groups:.*$/groups: [wheel, adm, systemd-journal, users, docker]/
                 }
             }
         }

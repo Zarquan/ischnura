@@ -445,8 +445,8 @@ Stevedore as default in cloud.cfg
 default in user-data
 dmr in user-data
 
-    ssh "dmr@${nodename:?}"       date ## denied
-    ssh "root@${nodename:?}"      date ## denied
+    ssh "dmr@${nodename:?}"       date ## works
+    ssh "root@${nodename:?}"      date ## not allowed
 
     ssh "fedora@${nodename:?}"    date ## denied
     ssh "Stevedore@${nodename:?}" date ## denied
