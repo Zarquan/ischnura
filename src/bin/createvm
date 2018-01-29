@@ -217,7 +217,9 @@ domuuid=$(
     virsh \
         --quiet \
         --connect "${connection:?}" \
-        domuuid ${nodename:?}
+        domuuid \
+            ${nodename:?} \
+            2>/dev/null
         )
 
 if [ -n "${domuuid}" ]
