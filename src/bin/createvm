@@ -41,6 +41,7 @@ fi
 : ${tempdir:='/tmp'}
 : ${basepool:='base'}
 : ${livepool:='live'}
+: ${initpool:='init'}
 : ${connection:='qemu:///system'}
 
 #
@@ -112,8 +113,12 @@ done
 # List the available base volumes.
 # Sort added to filter duplicates (https://github.com/Zarquan/ischnura-kvm/issues/14).
 tempdat=$(mktemp)
-virsh --connect "${connection:?}" vol-list --pool "${basepool}" | sort --unique > "${tempdat}"
-#readarray -t -s 2 lines < "${tempdat}"
+virsh \
+    --connect "${connection:?}" \
+    vol-list --pool \
+    "${basepool}" \
+  | sort --unique > "${tempdat}"
+
 readarray -t lines < <(
 tac "${tempdat}" |
 sed '
@@ -166,7 +171,16 @@ do
     fi
 done
 
-volsize=$(virsh  --connect "${connection:?}" vol-info --pool "${basepool:?}" "${basename:?}" | sed -n 's/Capacity: *\([0-9]*\)\.\([0-9]*\) \([^ ]*\)/\1\3/p')
+volsize=$(
+    virsh \
+        --connect "${connection:?}" \
+        vol-info \
+            --pool "${basepool:?}" \
+            "${basename:?}" \
+    | sed -n '
+        s/Capacity: *\([0-9]*\)\.\([0-9]*\) \([^ ]*\)/\1\3/p
+        '
+    )
 volname=${nodename:?}.qcow
 
 echo ""
@@ -198,7 +212,14 @@ fi
 
 #
 # Check for existing VM.
-domuuid="$(virsh --connect "${connection:?}" domuuid ${nodename:?} 2>/dev/null)"
+
+domuuid=$(
+    virsh \
+        --quiet \
+        --connect "${connection:?}" \
+        domuuid ${nodename:?}
+        )
+
 if [ -n "${domuuid}" ]
 then
     echo ""
@@ -213,7 +234,11 @@ then
         case $nodestate in
             paused|running)
                 echo "Stopping virtual machine [${nodename:?}]"
-                virsh --connect "${connection:?}" destroy "${domuuid:?}"
+                virsh \
+                    --quiet \
+                    --connect "${connection:?}" \
+                    destroy \
+                        "${domuuid:?}"
                 ;;        
 
             *)
@@ -224,10 +249,19 @@ then
         if [ $? -eq 0 ]
         then
             echo "Deleting virtual machine [${nodename:?}]"
-            virsh --connect "${connection:?}" undefine "${domuuid:?}" --remove-all-storage
+            virsh \
+                --quiet \
+                --connect "${connection:?}" \
+                undefine \
+                    "${domuuid:?}" \
+                    --remove-all-storage
         else
             echo "Deleting virtual machine [${nodename:?}]"
-            virsh --connect "${connection:?}" undefine "${domuuid:?}"
+            virsh \
+                --quiet \
+                --connect "${connection:?}" \
+                undefine \
+                    "${domuuid:?}"
         fi
     else
         echo "EXIT : Found existing virtual machine [${nodename:?}]"
@@ -237,7 +271,15 @@ fi
 
 #
 # Check for existing volume.
-voluuid="$(virsh --connect "${connection:?}" vol-key "${volname:?}" --pool "${livepool:?}" 2>/dev/null)"
+voluuid="$(
+    virsh \
+        --connect "${connection:?}" \
+        vol-key "${volname:?}" \
+        --pool "${livepool:?}"
+        )"
+
+# 2>/dev/null
+
 if [ -n "${voluuid}" ]
 then
     echo ""
@@ -246,7 +288,12 @@ then
     if [ $? -eq 0 ]
     then
         echo "Deleting storage volume [${volname:?}]"
-        virsh --connect "${connection:?}" vol-delete "${volname:?}" --pool "${livepool:?}"
+        virsh \
+            --quiet \
+            --connect "${connection:?}" \
+            vol-delete \
+                "${volname:?}" \
+                --pool "${livepool:?}"
     else
         echo "EXIT : Found existing storage volume [${volname:?}]"
         exit 0
@@ -257,16 +304,22 @@ fi
 # Create a new volume, backed by the base image.
 echo ""
 echo "Creating new volume [${volname:?}]"
-virsh --connect "${connection:?}" vol-create-as \
-    "${livepool:?}" \
-    "${volname:?}" \
-    "${volsize:?}" \
-    --allocation 0 \
-    --format 'qcow2' \
-    --backing-vol "${basepath:?}" \
-    --backing-vol-format 'qcow2'
+virsh \
+    --connect "${connection:?}" \
+    vol-create-as \
+        "${livepool:?}" \
+        "${volname:?}" \
+        "${volsize:?}" \
+        --allocation 0 \
+        --format 'qcow2' \
+        --backing-vol "${basepath:?}" \
+        --backing-vol-format 'qcow2'
 
-virsh --connect "${connection:?}" vol-info --pool "${livepool:?}" "${volname:?}"
+virsh \
+    --connect "${connection:?}" \
+    vol-info \
+        --pool "${livepool:?}" \
+        "${volname:?}"
 
 #---------------------------------------------------------------------
 # Create our cloud-init metadata files.
@@ -314,16 +367,14 @@ EOF
 
         isofile=$(mktemp)
 
-        pushd "${isotemp:?}"
-            genisoimage \
-                -rock \
-                -joliet \
-                -volid 'cidata' \
-                -input-charset 'utf-8' \
-                -output "${isofile:?}" \
-                meta-data \
-                user-data
-        popd
+        genisoimage \
+            -rock \
+            -quiet \
+            -joliet \
+            -volid 'cidata' \
+            -input-charset 'utf-8' \
+            -output "${isofile:?}" \
+            "${isotemp:?}"
 
 #---------------------------------------------------------------------
 # Delete any existing ISO volume.
@@ -333,19 +384,21 @@ EOF
 
     isouuid=$(
         virsh \
+            --quiet \
             --connect "${connection:?}" \
-            vol-key "${isoname:?}" \
-            --pool  "${initpool}"  \
-            2>/dev/null
+            vol-key \
+                "${isoname:?}" \
+                --pool "${initpool:?}"
             )
 
     if [ -n "${isouuid}" ]
         then
-            virsh \
-                --connect "${connection:?}" \
-                vol-delete \
-                    --pool "${initpool}" \
-                    "${isoname:?}"
+        virsh \
+            --quiet \
+            --connect "${connection:?}" \
+            vol-delete \
+                "${isoname:?}" \
+                --pool "${initpool:?}"
         fi
 
 #---------------------------------------------------------------------
@@ -403,20 +456,23 @@ EOF
         --value  "${volpath:?}" \
         --update "//disk[@device='cdrom']/source/@file" \
         --value  "${isopath:?}" \
-        "${template}" >
-        "${tempxml}"
+        "${template}" \
+      > "${tempxml}"
 
 #---------------------------------------------------------------------
 # Create and start a new instance.
 
     echo "Creating new virtual machine [${nodename:?}]"
     virsh \
+        --quiet \
         --connect "${connection:?}" \
-        define "${tempxml}"
+            define "${tempxml}"
 
+    echo "Starting new virtual machine [${nodename:?}]"
     virsh \
+        --quiet \
         --connect "${connection:?}" \
-        start "${nodename:?}"
+            start "${nodename:?}"
 
 #---------------------------------------------------------------------
 # Tidy up ..
