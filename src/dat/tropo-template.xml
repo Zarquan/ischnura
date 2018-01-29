@@ -24,8 +24,15 @@
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
       <target dev='vda' bus='virtio'/>
-      <source file='/var/lib/libvirt/base/unknown.qcow'/>
+      <source file='/var/lib/libvirt/images/base/unknown.qcow'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+    </disk>
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='/var/lib/libvirt/images/init/inknown.iso'/>
+      <target dev='vdb' bus='virtio'/>
+      <readonly/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
     </disk>
     <interface type='network'>
       <mac address='52:54:00:00:00:00'/>

@@ -19,11 +19,11 @@
 # </meta:header>
 #
 #
+
 binpath=$(dirname $(readlink -f ${0}))
 srcpath=$(dirname ${binpath:?})
 toppath=$(dirname ${srcpath:?})
 datpath=${srcpath:?}/dat
-
 
 #
 # Load our local configuration.
@@ -241,8 +241,8 @@ voluuid="$(virsh --connect "${connection:?}" vol-key "${volname:?}" --pool "${li
 if [ -n "${voluuid}" ]
 then
     echo ""
-    echo "Found existing storage voume [${volname:?}]"
-    confirm "Delete storage voume"
+    echo "Found existing storage volume [${volname:?}]"
+    confirm "Delete storage volume"
     if [ $? -eq 0 ]
     then
         echo "Deleting storage volume [${volname:?}]"
@@ -268,26 +268,165 @@ virsh --connect "${connection:?}" vol-create-as \
 
 virsh --connect "${connection:?}" vol-info --pool "${livepool:?}" "${volname:?}"
 
-#
-# Create a new virtual machine.
-volpath=$(virsh --connect "${connection:?}" vol-path --pool "${livepool:?}" "${volname:?}")
-tempxml=$(mktemp)
-sed '
-    s|<name>.*</name>|<name>'"${nodename:?}"'</name>|
-    s|<source file='\''.*'\''/>|<source file='\'''"${volpath}"''\''/>|
-    s|<mac address='\''.*'\''/>|<mac address='\'''"${nodemac:?}"''\''/>|
-    ' "${template}" > "${tempxml}"
+#---------------------------------------------------------------------
+# Create our cloud-init metadata files.
+# http://blog.oddbit.com/2015/03/10/booting-cloud-images-with-libvirt/
 
+    isotemp=$(mktemp -d)
 
-# Create and start a new instance
-echo "Creating new virtual machine [${nodename:?}]"
-virsh --connect "${connection:?}" define "${tempxml}"
-virsh --connect "${connection:?}" start  "${nodename:?}"
+    #
+    # Use the authorized keys for the current user
+    # to set the keys for the default user.
+    cat > "${isotemp:?}/meta-data" << EOF
+#cloud-config
+public-keys:
+$(sed -n '
+    /^#/ !{
+        s/\(.*\)/  - \1/p
+        }
+    ' ${HOME}/.ssh/authorized_keys 
+    )
+EOF
 
-#
+    #
+    # Create a config for the current user,
+    # including their authorized keys.
+    cat > "${isotemp:?}/user-data" << EOF
+#cloud-config
+users:
+  - default
+  - name: $(id -un)
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    groups: [users, wheel, docker]
+    shell: /bin/bash
+    ssh-authorized-keys:
+$(sed -n '
+    /^#/ !{
+        s/\(.*\)/      - \1/p
+        }
+    ' ~/.ssh/authorized_keys 
+    )
+EOF
+
+#---------------------------------------------------------------------
+# Wrap our metadata files in an ISO image.
+# https://linux.die.net/man/1/genisoimage
+
+        isofile=$(mktemp)
+
+        pushd "${isotemp:?}"
+            genisoimage \
+                -rock \
+                -joliet \
+                -volid 'cidata' \
+                -input-charset 'utf-8' \
+                -output "${isofile:?}" \
+                meta-data \
+                user-data
+        popd
+
+#---------------------------------------------------------------------
+# Delete any existing ISO volume.
+
+    isosize=$(du -k "${isofile:?}" | cut -f1)
+    isoname=${nodename:?}.iso
+
+    isouuid=$(
+        virsh \
+            --connect "${connection:?}" \
+            vol-key "${isoname:?}" \
+            --pool  "${initpool}"  \
+            2>/dev/null
+            )
+
+    if [ -n "${isouuid}" ]
+        then
+            virsh \
+                --connect "${connection:?}" \
+                vol-delete \
+                    --pool "${initpool}" \
+                    "${isoname:?}"
+        fi
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${initpool:?}" \
+            "${isoname:?}" \
+            "${isosize:?}k" \
+            --format 'raw'
+
+#---------------------------------------------------------------------
+# Upload the ISO image into the new volume.
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-upload \
+            --pool "${initpool:?}" \
+            "${isoname:?}" \
+            "${isofile:?}"
+
+#---------------------------------------------------------------------
+# Get local paths for the volume files.
+
+    volpath=$(
+        virsh \
+            --connect "${connection:?}" \
+            vol-path \
+                --pool "${livepool:?}" \
+                "${volname:?}"
+            )
+
+    isopath=$(
+        virsh \
+            --connect "${connection:?}" \
+            vol-path \
+                --pool "${initpool:?}" \
+                "${isoname:?}"
+            )
+
+#---------------------------------------------------------------------
+# Fill in the template.
+
+    tempxml=$(mktemp)
+
+    xmlstarlet \
+        ed \
+        --update "/domain/name" \
+        --value  "${nodename:?}" \
+        --update "//interface[@type='network']/mac/@address" \
+        --value  "${nodemac:?}" \
+        --update "//disk[@device='disk']/source/@file" \
+        --value  "${volpath:?}" \
+        --update "//disk[@device='cdrom']/source/@file" \
+        --value  "${isopath:?}" \
+        "${template}" >
+        "${tempxml}"
+
+#---------------------------------------------------------------------
+# Create and start a new instance.
+
+    echo "Creating new virtual machine [${nodename:?}]"
+    virsh \
+        --connect "${connection:?}" \
+        define "${tempxml}"
+
+    virsh \
+        --connect "${connection:?}" \
+        start "${nodename:?}"
+
+#---------------------------------------------------------------------
 # Tidy up ..
-rm "${tempxml}"
 
-#
+    rm "${tempxml}"
+    rm "${isofile:?}"
+    rm -r "${isotemp:?}"
+
+#---------------------------------------------------------------------
 # Export the node name
-export nodename=${nodename:?}
+
+    export nodename=${nodename:?}
+
