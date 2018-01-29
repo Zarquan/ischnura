@@ -131,15 +131,31 @@ systemctl enable cloud-init-local.service
 #
 # Configure our cloud-init user account.
 # https://docs.openstack.org/image-guide/fedora-image.html
-cat >> /etc/cloud/cloud.cfg.d/10-users.cfg << 'EOF'
-#cloud-config
-users:
-  - name: Stevedore
-    gecos: Docker deployer account
-    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-    groups: [users, wheel, docker]
-    shell: /bin/bash
-EOF
+#cat >> /etc/cloud/cloud.cfg.d/10-users.cfg << 'EOF'
+##cloud-config
+#users:
+#  - name: Stevedore
+#    gecos: Docker deployer account
+#    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+#    groups: [users, wheel, docker]
+#    shell: /bin/bash
+#EOF
+#
+
+#
+# Modify the default cloud-init user account.
+# https://docs.openstack.org/image-guide/fedora-image.html
+sed -i '
+    /^system_info:/,/^$/ {
+        /^[[:space:]]\{2\}default_user:/,/^[[:space:]]\{2\}[[:alnum:]]/ {
+            /^[[:space:]]\{4\}/ {
+                s/name:.*/name:Stevedore/
+                s/gecos:.*/gecos:Docker deployer/
+                s/groups:.*/[wheel, adm, systemd-journal, users, docker]/
+                }
+            }
+        }
+    ' /etc/cloud/cloud.cfg
 
 #
 # Disable the default zeroconf route.
