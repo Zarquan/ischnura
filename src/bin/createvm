@@ -305,6 +305,7 @@ fi
 echo ""
 echo "Creating new volume [${volname:?}]"
 virsh \
+    --quiet \
     --connect "${connection:?}" \
     vol-create-as \
         "${livepool:?}" \
@@ -406,6 +407,7 @@ EOF
 # Create a new (empty) volume.
 
     virsh \
+        --quiet \
         --connect "${connection:?}" \
         vol-create-as \
             "${initpool:?}" \
@@ -417,6 +419,7 @@ EOF
 # Upload the ISO image into the new volume.
 
     virsh \
+        --quiet \
         --connect "${connection:?}" \
         vol-upload \
             --pool "${initpool:?}" \
@@ -428,6 +431,7 @@ EOF
 
     volpath=$(
         virsh \
+            --quiet \
             --connect "${connection:?}" \
             vol-path \
                 --pool "${livepool:?}" \
@@ -436,6 +440,7 @@ EOF
 
     isopath=$(
         virsh \
+            --quiet \
             --connect "${connection:?}" \
             vol-path \
                 --pool "${initpool:?}" \
