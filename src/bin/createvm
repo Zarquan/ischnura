@@ -271,14 +271,14 @@ fi
 
 #
 # Check for existing volume.
-voluuid="$(
+voluuid=$(
     virsh \
         --connect "${connection:?}" \
-        vol-key "${volname:?}" \
-        --pool "${livepool:?}"
-        )"
-
-# 2>/dev/null
+        vol-key \
+            --pool "${livepool:?}" \
+            "${volname:?}" \
+            2>/dev/null
+        )
 
 if [ -n "${voluuid}" ]
 then
@@ -387,8 +387,9 @@ EOF
             --quiet \
             --connect "${connection:?}" \
             vol-key \
+                --pool "${initpool:?}" \
                 "${isoname:?}" \
-                --pool "${initpool:?}"
+                2>/dev/null
             )
 
     if [ -n "${isouuid}" ]
@@ -397,8 +398,8 @@ EOF
             --quiet \
             --connect "${connection:?}" \
             vol-delete \
-                "${isoname:?}" \
-                --pool "${initpool:?}"
+                --pool "${initpool:?}" \
+                "${isoname:?}"
         fi
 
 #---------------------------------------------------------------------
