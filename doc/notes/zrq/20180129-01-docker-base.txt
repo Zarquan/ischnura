@@ -1,7 +1,7 @@
 #
 # <meta:header>
 #   <meta:licence>
-#     Copyright (C) 2017 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#     Copyright (C) 2018 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
 #
 #     This information is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -112,9 +112,10 @@
                 "${basefile:?}"
                 )
 
-    sudo qemu-img \
-        info \
-            "${basepath:?}"
+    sudo \
+        qemu-img \
+            info \
+                "${basepath:?}"
 
         image: /var/lib/libvirt/images/base/fedora-27-docker-base-20180129.qcow
         file format: qcow2
@@ -130,14 +131,15 @@
 #[user@trop03]
 
     tempfile=$(mktemp)
-    sudo qemu-img \
-        convert \
-            -c \
-            -O qcow2 \
-            "${basepath:?}" \
-            "${tempfile:?}"
+    sudo \
+        qemu-img \
+            convert \
+                -c \
+                -O qcow2 \
+                "${basepath:?}" \
+                "${tempfile:?}"
 
-    sudo qemu-img \
+    qemu-img \
         info \
             "${tempfile:?}"
 
@@ -208,11 +210,7 @@
 
 --------------------------------------------------
 
-nodename=Umiawyth
-
-    virsh \
-        --connect "${connection:?}" \
-        dumpxml "${nodename:?}"
+    nodename=Umiawyth
 
 # Stevedore is default in cloud.cfg
 # default configured in meta-data
@@ -224,6 +222,8 @@ nodename=Umiawyth
     ssh "fedora@${nodename:?}"    date ## denied
     ssh "Stevedore@${nodename:?}" date ## works
 
+--------------------------------------------------
 
-
+TODO gzip and push to webserver
+TODO install and test on OpenStack
 

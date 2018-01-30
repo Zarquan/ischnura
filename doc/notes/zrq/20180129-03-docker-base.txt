@@ -1,0 +1,219 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Build settings
+#[user@trop02]
+
+    source "${HOME}/ischnura.settings"
+
+    basecpu=4
+    basemem=4096
+    basesize=16G
+    basearch=x86_64
+
+    basever=27
+    basedate=$(date +%Y%m%d)
+    basedist=fedora-${basever:?}
+    basename=${basedist}-docker-base-${basedate:?}
+    basefile=${basename}.qcow
+
+#---------------------------------------------------------------------
+# Download a copy of the base image.
+#[user@trop02]
+
+    pushd $(mktemp -d)
+    
+        wget "http://data.metagrid.co.uk/ischnura/base/${basefile:?}.gz"
+
+        gzip --uncompress "${basefile:?}.gz"
+
+#---------------------------------------------------------------------
+# Check the image details.
+#[user@trop02]
+
+        qemu-img \
+            info \
+                "${basefile:?}"
+
+#---------------------------------------------------------------------
+# Delete any existing VM image.
+#[user@trop02]
+
+       virsh \
+           --connect "${connection:?}" \
+           undefine "${basename:?}"
+
+#---------------------------------------------------------------------
+# Delete any existing volume.
+#[user@trop02]
+
+        virsh \
+            --connect "${connection:?}" \
+            vol-delete \
+                --pool "${basepool}" \
+                "${basefile:?}"
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop02]
+
+        virsh \
+            --connect "${connection:?}" \
+            vol-create-as \
+                "${basepool:?}" \
+                "${basefile:?}" \
+                "${basesize:?}" \
+                --format qcow2
+
+#---------------------------------------------------------------------
+# Upload the image into the new volume.
+#[user@trop02]
+
+        virsh \
+            --connect "${connection:?}" \
+            vol-upload \
+                --pool "${basepool:?}" \
+                "${basefile:?}" \
+                "${basefile:?}"
+
+    popd
+
+#---------------------------------------------------------------------
+# Update the source code.
+#[user@trop02]
+
+    source "${HOME}/ischnura.settings"
+    pushd  "${ischcode:?}"
+
+        git pull
+
+    popd
+
+#---------------------------------------------------------------------
+# Run createvm and test ....
+#[user@trop02]
+
+    createvm
+
+        ....
+        /var/local/projects/ischnura/github/src/bin/createvm: line 374: genisoimage: command not found
+        error: failed to get pool 'init'
+        error: Storage pool not found: no storage pool with matching name 'init'
+        error: failed to get pool 'init'
+        error: Storage pool not found: no storage pool with matching name 'init'
+        error: failed to get pool 'init'
+        error: Storage pool not found: no storage pool with matching name 'init'
+        /var/local/projects/ischnura/github/src/bin/createvm: line 458: isopath: parameter null or not set
+
+#---------------------------------------------------------------------
+# Install the missing dependency.
+#[user@trop02]
+
+    sudo apt-get update
+    sudo apt-get install genisoimage
+
+#---------------------------------------------------------------------
+# Create the cloud-init volume pool.
+#[user@trop03]
+
+    initpool='init'
+    initpath='/var/lib/libvirt/images/init'
+
+    initxml=$(mktemp)
+    cat > "${initxml:?}" << EOF
+<pool type='dir'>
+  <name>${initpool:?}</name>
+  <target>
+    <path>${initpath:?}</path>
+  </target>
+</pool>
+EOF
+
+   virsh \
+       --connect "${connection:?}" \
+        pool-define "${initxml:?}"
+
+    virsh \
+        -c "${connection:?}" \
+        pool-build "${initpool:?}"
+
+    virsh \
+        -c "${connection:?}" \
+        pool-start "${initpool:?}"
+
+    virsh \
+        -c "${connection:?}" \
+        pool-autostart "${initpool:?}"
+
+    virsh \
+        -c "${connection:?}" \
+        pool-info "${initpool:?}"
+
+#---------------------------------------------------------------------
+# Run createvm and test ....
+#[user@trop02]
+
+    createvm 
+
+        ....
+        Vol Siamond.iso created
+        /var/local/projects/ischnura/github/src/bin/createvm: line 458: xmlstarlet: command not found
+        Creating new virtual machine [Siamond]
+        error: Failed to define domain from /tmp/tmp.6My16e6xjk
+        error: (domain_definition):1: Document is empty
+        (null)
+        ^
+
+#---------------------------------------------------------------------
+# Install the missing dependency.
+#[user@trop02]
+
+    sudo apt-get update
+    sudo apt-get install xmlstarlet
+
+#---------------------------------------------------------------------
+# Run createvm and test ....
+#[user@trop02]
+
+    createvm 
+
+        INFO : Node name [Siamond]
+        INFO : Base name [fedora-27-docker-base-20180129.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-27-docker-base-20180129.qcow]
+        INFO : Disc name [Siamond.qcow]
+        INFO : Disc size [16GiB]
+
+#---------------------------------------------------------------------
+# Test login access to the VM.
+#[user@trop02]
+
+    nodename=Siamond
+
+    ssh "${nodename:?}"           date ## works
+
+    ssh "dmr@${nodename:?}"       date ## works
+    ssh "root@${nodename:?}"      date ## not allowed
+    ssh "fedora@${nodename:?}"    date ## denied
+    ssh "Stevedore@${nodename:?}" date ## works
+
+

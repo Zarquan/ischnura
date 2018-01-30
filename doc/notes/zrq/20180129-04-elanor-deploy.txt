@@ -1,0 +1,795 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a new VM to work as the client.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Umiawyth]
+        INFO : Base name [fedora-27-docker-base-20180129.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-27-docker-base-20180129.qcow]
+        INFO : Disc name [Umiawyth.qcow]
+        INFO : Disc size [16GiB]
+
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop]
+
+    ssh Stevedore@Umiawyth
+
+# -----------------------------------------------------
+# Configure our secrets function.
+#[user@virtual]
+
+cat > "${HOME}/secret.sh" << 'EOF'
+....
+....
+EOF
+
+    source "${HOME}/secret.sh"
+    secret frog
+
+# -----------------------------------------------------
+# Configure our OpenStack settings.
+# https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+#[user@virtual]
+
+    cat > "${HOME}/openstack.settings" << EOF
+
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+
+export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+export OS_USER_DOMAIN_NAME="ed"
+export OS_REGION_NAME="Edinburgh"
+
+export OS_USERNAME=$(secret openstack.user)
+export OS_PASSWORD=$(secret openstack.pass)
+
+#export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+#export OS_PROJECT_NAME=virtual-observatory-services
+
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
+
+EOF
+
+# -----------------------------------------------------
+# Run a copy of the latest Fedora.
+#[user@virtual]
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --env    "SSH_AUTH_SOCK=/tmp/ssh_auth_sock" \
+        --volume "${HOME}/openstack.settings:/openstack.settings" \
+        --volume "${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock" \
+        fedora \
+        bash
+
+# -----------------------------------------------------
+# Load our settings.
+#[root@container]
+
+    source /openstack.settings
+
+# -----------------------------------------------------
+# Check our user name and password.
+#[root@container]
+
+    cat << EOF
+Username [${OS_USERNAME:?}]
+Password [${OS_PASSWORD:?}]
+Project  [${OS_PROJECT_NAME:?}]
+Project  [${OS_PROJECT_ID:?}]
+EOF
+
+# -----------------------------------------------------
+# Install the OpenStack client.
+# https://docs.openstack.org/python-openstackclient/latest/
+#[root@container]
+
+    dnf \
+        install -y \
+        python-openstackclient
+
+# -----------------------------------------------------
+# Install the JQ JSON parser.
+# https://stedolan.github.io/jq/
+#[root@container]
+
+    dnf \
+        install -y \
+        jq
+
+# -----------------------------------------------------
+# Show our project details.
+#[root@container]
+
+    openstack \
+        project show \
+        --format json \
+        ${OS_PROJECT_ID:?} \
+      | jq '.'
+
+        {
+          "is_domain": false,
+          "description": "",
+          "enabled": true,
+          "domain_id": "450db9c9d59f4e888f9f44c4a9904118",
+          "parent_id": "450db9c9d59f4e888f9f44c4a9904118",
+          "id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+          "name": "lsst"
+        }
+
+# -----------------------------------------------------
+# List our available images.
+#[root@container]
+
+    openstack \
+        image list \
+        --format json \
+      | jq '.'
+
+        [
+          {
+            "Status": "active",
+            "ID": "d608b269-de15-4852-96b0-2dda15466cb6",
+            "Name": "Centos 6 - 1612"
+          },
+          {
+            "Status": "active",
+            "ID": "b241c7ea-63f5-4a77-86de-e18a1e8bee45",
+            "Name": "Centos 7 - 1612"
+          },
+          {
+            "Status": "active",
+            "ID": "65a5d008-5d58-48f9-973a-1fd1e917ba7d",
+            "Name": "Scientific Linux 6.8"
+          },
+          {
+            "Status": "active",
+            "ID": "2326063c-5a0f-4430-b76c-e977100a3e0d",
+            "Name": "Scientific Linux 7.2"
+          },
+          {
+            "Status": "active",
+            "ID": "039046a1-0a88-4a5b-b997-b18fa2264e0b",
+            "Name": "Ubuntu 14.04"
+          },
+          {
+            "Status": "active",
+            "ID": "b3bb4c27-ec69-4115-a02e-dfe9e8e65acb",
+            "Name": "Ubuntu 14.04 Spark 1.3.1"
+          },
+          {
+            "Status": "active",
+            "ID": "21649978-8542-4b5b-88c0-d1cde75b8516",
+            "Name": "Ubuntu 14.04 Vanilla 2.7.1"
+          },
+          {
+            "Status": "active",
+            "ID": "909b980e-3514-4589-a250-444e0dcbad04",
+            "Name": "Ubuntu 16.04"
+          },
+          {
+            "Status": "active",
+            "ID": "78f2f6e8-70c3-440e-bbf3-8ed639808706",
+            "Name": "fedora-25-docker-16G-20170713"
+          }
+        ]
+
+# -----------------------------------------------------
+# Download our image.
+#[root@container]
+
+    dnf \
+        install -y \
+        wget
+
+    basever=27
+    basedate=20180129
+    basedist=fedora-${basever:?}
+    basename=${basedist}-docker-base-${basedate:?}
+    basefile=${basename}.qcow
+    basegzip=${basefile}.gz
+
+    tmpdir=$(mktemp -d)
+    pushd ${tmpdir:?}
+
+        wget "http://data.metagrid.co.uk/ischnura/base/${basegzip:?}"
+        gunzip ${basegzip:?}
+
+    popd
+
+# -----------------------------------------------------
+# Upload our image.
+#[root@container]
+
+    openstack \
+        image create \
+        --format json \
+        --disk-format qcow2 \
+        --container-format bare \
+        --file "${tmpdir:?}/${basefile:?}" \
+        "${basename:?}" \
+      | tee 'image-create.json' \
+      | jq '.'
+
+
+        {
+          "min_ram": 0,
+          "status": "active",
+          "virtual_size": null,
+          "name": "fedora-27-docker-base-20180129",
+          "tags": "",
+          "checksum": "0a18bed93f87dc557620fe48b8c7f8d8",
+          "created_at": "2018-01-30T00:38:07Z",
+          "disk_format": "qcow2",
+          "updated_at": "2018-01-30T00:38:32Z",
+          "visibility": "shared",
+          "properties": "direct_url='rbd://....', locations='[{u'url': u'rbd://....', u'metadata': {}}]'",
+          "owner": "fcef6dd450f64a1ab4ffa5a7234c4161",
+          "protected": false,
+          "file": "/v2/images/407a5d09-cd97-455f-9bdb-4fb7f54dd4ff/file",
+          "container_format": "bare",
+          "min_disk": 0,
+          "size": 855194624,
+          "id": "407a5d09-cd97-455f-9bdb-4fb7f54dd4ff",
+          "schema": "/v2/schemas/image"
+        }
+
+    imageid=$(
+        jq -r '.id' image-create.json
+        )
+
+# -----------------------------------------------------
+# List our available images.
+#[root@container]
+
+    openstack \
+        image list \
+        --format json \
+      | tee 'image-list.json' \
+      | jq '.'
+
+        [
+          {
+            "Status": "active",
+            "ID": "d608b269-de15-4852-96b0-2dda15466cb6",
+            "Name": "Centos 6 - 1612"
+          },
+          {
+            "Status": "active",
+            "ID": "b241c7ea-63f5-4a77-86de-e18a1e8bee45",
+            "Name": "Centos 7 - 1612"
+          },
+          {
+            "Status": "active",
+            "ID": "65a5d008-5d58-48f9-973a-1fd1e917ba7d",
+            "Name": "Scientific Linux 6.8"
+          },
+          {
+            "Status": "active",
+            "ID": "2326063c-5a0f-4430-b76c-e977100a3e0d",
+            "Name": "Scientific Linux 7.2"
+          },
+          {
+            "Status": "active",
+            "ID": "039046a1-0a88-4a5b-b997-b18fa2264e0b",
+            "Name": "Ubuntu 14.04"
+          },
+          {
+            "Status": "active",
+            "ID": "b3bb4c27-ec69-4115-a02e-dfe9e8e65acb",
+            "Name": "Ubuntu 14.04 Spark 1.3.1"
+          },
+          {
+            "Status": "active",
+            "ID": "21649978-8542-4b5b-88c0-d1cde75b8516",
+            "Name": "Ubuntu 14.04 Vanilla 2.7.1"
+          },
+          {
+            "Status": "active",
+            "ID": "909b980e-3514-4589-a250-444e0dcbad04",
+            "Name": "Ubuntu 16.04"
+          },
+          {
+            "Status": "active",
+            "ID": "78f2f6e8-70c3-440e-bbf3-8ed639808706",
+            "Name": "fedora-25-docker-16G-20170713"
+          },
+          {
+            "Status": "active",
+            "ID": "407a5d09-cd97-455f-9bdb-4fb7f54dd4ff",
+            "Name": "fedora-27-docker-base-20180129"
+          }
+        ]
+
+# -----------------------------------------------------
+# List the available flavors.
+#[root@container]
+
+    openstack \
+        flavor list \
+        --format json \
+      | tee 'flavor-list.json' \
+      | jq '.'
+
+        [
+          {
+            "Name": "m1.xxlarge",
+            "RAM": 32768,
+            "Ephemeral": 0,
+            "VCPUs": 16,
+            "Is Public": true,
+            "Disk": 160,
+            "ID": "09086afb-9d80-4719-974c-45e700a795bb"
+          },
+          {
+            "Name": "m1.small",
+            "RAM": 2048,
+            "Ephemeral": 0,
+            "VCPUs": 1,
+            "Is Public": true,
+            "Disk": 20,
+            "ID": "2"
+          },
+          {
+            "Name": "l1.xxlarge",
+            "RAM": 98304,
+            "Ephemeral": 0,
+            "VCPUs": 16,
+            "Is Public": true,
+            "Disk": 320,
+            "ID": "2b93be09-8179-4db2-9f27-e98dd0c8fbaf"
+          },
+          {
+            "Name": "m1.medium",
+            "RAM": 4096,
+            "Ephemeral": 0,
+            "VCPUs": 2,
+            "Is Public": true,
+            "Disk": 40,
+            "ID": "3"
+          },
+          {
+            "Name": "m1.large",
+            "RAM": 8192,
+            "Ephemeral": 0,
+            "VCPUs": 4,
+            "Is Public": true,
+            "Disk": 80,
+            "ID": "4"
+          },
+          {
+            "Name": "m1.xlarge",
+            "RAM": 16384,
+            "Ephemeral": 0,
+            "VCPUs": 8,
+            "Is Public": true,
+            "Disk": 160,
+            "ID": "5"
+          },
+          {
+            "Name": "l1.small",
+            "RAM": 6144,
+            "Ephemeral": 0,
+            "VCPUs": 1,
+            "Is Public": true,
+            "Disk": 40,
+            "ID": "6"
+          },
+          {
+            "Name": "l1.medium",
+            "RAM": 12288,
+            "Ephemeral": 0,
+            "VCPUs": 2,
+            "Is Public": true,
+            "Disk": 80,
+            "ID": "7"
+          },
+          {
+            "Name": "l1.large",
+            "RAM": 24576,
+            "Ephemeral": 0,
+            "VCPUs": 4,
+            "Is Public": true,
+            "Disk": 160,
+            "ID": "8"
+          },
+          {
+            "Name": "l1.xlarge",
+            "RAM": 49152,
+            "Ephemeral": 0,
+            "VCPUs": 8,
+            "Is Public": true,
+            "Disk": 320,
+            "ID": "9"
+          }
+        ]
+
+# -----------------------------------------------------
+# List our available networks.
+#[root@container]
+
+    openstack \
+        network list \
+        --format json \
+      | tee 'network-list.json' \
+      | jq '.'
+
+        [
+          {
+            "Subnets": "378f0f3f-a7bc-495d-9b21-3997a10404e8",
+            "ID": "0dc77e8e-a97e-411e-94d0-da1b6efc393c",
+            "Name": "vm-network-UoE-external"
+          },
+          {
+            "Subnets": "6ab469f9-ff01-4aee-af59-5f1da7e26e81",
+            "ID": "4f2774d1-dfb8-4833-8374-806e1fc40827",
+            "Name": "Floating Network Private (UoE access only)"
+          },
+          {
+            "Subnets": "9c07390c-dc6e-4a85-a20c-66c370dbff62",
+            "ID": "cc1bdad0-6b7c-4c7b-8c5b-6d5f4a677368",
+            "Name": "vm-network-UoE-internal"
+          },
+          {
+            "Subnets": "e1c72964-3276-473f-a169-b60de622c385",
+            "ID": "d1e55e07-6f28-4d98-8116-e11ca10c3e8f",
+            "Name": "Floating Network Public"
+          }
+        ]
+
+    virtualexternal=$(
+        jq -r '
+            .[] | 
+            select(
+                (
+                .Name | test("vm";"i")
+                )
+            and (
+                .Name | test("external";"i")
+            
+                )
+            ) | .ID
+            ' \
+            'network-list.json'
+        )
+
+    virtualinternal=$(
+        jq -r '
+            .[] | 
+            select(
+                (
+                .Name | test("vm";"i")
+                )
+            and (
+                .Name | test("internal";"i")
+            
+                )
+            ) | .ID
+            ' \
+            'network-list.json'
+        )
+
+    floatexternal=$(
+        jq -r '
+            .[] |
+            select(
+                (
+                .Name | test("float";"i")
+                )
+            and (
+                .Name | test("public";"i")
+                )
+            ) | .ID
+            ' \
+            'network-list.json'
+        )
+
+    floatinternal=$(
+        jq -r '
+            .[] |
+            select(
+                (
+                .Name | test("float";"i")
+                )
+            and (
+                .Name | test("private";"i")
+                )
+            ) | .ID
+            ' \
+            'network-list.json'
+        )
+
+    echo "
+    floatinternal   [${floatinternal}]
+    floatexternal   [${floatexternal}]
+    virtualinternal [${virtualinternal}]
+    virtualexternal [${virtualexternal}]
+    "
+
+# -----------------------------------------------------
+# List our SSH keys.
+#[root@container]
+
+    openstack \
+        keypair list \
+        --format json \
+      | tee 'keypair-list.json' \
+      | jq '.'
+
+        [
+          {
+            "Name": "dmr",
+            "Fingerprint": "68:33:1e:9d:d7:46:20:8d:5a:04:e8:3c:19:b4:00:b4"
+          },
+          {
+            "Name": "stv",
+            "Fingerprint": "8c:09:1a:eb:9c:db:b2:5d:30:5b:a9:b0:cb:26:6c:4e"
+          }
+        ]
+
+# -----------------------------------------------------
+# Boot an instance.
+#[root@container]
+
+    openstack \
+        server create \
+        --format json \
+        --image "${imageid:?}" \
+        --flavor 2 \
+        --nic "net-id=${virtualexternal}" \
+        --key-name 'dmr' \
+        albert \
+      | tee 'server-create.json' \
+      | jq '.'
+
+        {
+          "OS-EXT-STS:task_state": "scheduling",
+          "addresses": "",
+          "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+          "OS-EXT-STS:vm_state": "building",
+          "OS-SRV-USG:launched_at": null,
+          "flavor": "m1.small (2)",
+          "id": "6cfda8e3-9f6c-4786-94a3-d4b478cdb791",
+          "security_groups": "name='default'",
+          "volumes_attached": "",
+          "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+          "OS-DCF:diskConfig": "MANUAL",
+          "accessIPv4": "",
+          "accessIPv6": "",
+          "progress": 0,
+          "OS-EXT-STS:power_state": "NOSTATE",
+          "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+          "config_drive": "",
+          "status": "BUILD",
+          "updated": "2018-01-30T01:26:21Z",
+          "hostId": "",
+          "OS-SRV-USG:terminated_at": null,
+          "key_name": "dmr",
+          "properties": "",
+          "OS-EXT-AZ:availability_zone": "",
+          "name": "albert",
+          "adminPass": "XYWw8hQkaQgD",
+          "created": "2018-01-30T01:26:21Z"
+        }
+
+
+    serverid=$(
+        jq -r '
+            .id
+            ' \
+            'server-create.json'            
+        )
+
+# -----------------------------------------------------
+# Check our instance.
+#[root@container]
+
+    openstack \
+        server show \
+        --format json \
+        "${serverid:?}" \
+      | jq '.'
+
+        {
+          "OS-EXT-STS:task_state": null,
+          "addresses": "vm-network-UoE-external=192.168.2.12",
+          "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+          "OS-EXT-STS:vm_state": "active",
+          "OS-SRV-USG:launched_at": "2018-01-30T01:26:57.000000",
+          "flavor": "m1.small (2)",
+          "id": "6cfda8e3-9f6c-4786-94a3-d4b478cdb791",
+          "security_groups": "name='default'",
+          "volumes_attached": "",
+          "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+          "OS-DCF:diskConfig": "MANUAL",
+          "accessIPv4": "",
+          "accessIPv6": "",
+          "progress": 0,
+          "OS-EXT-STS:power_state": "Running",
+          "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+          "config_drive": "",
+          "status": "ACTIVE",
+          "updated": "2018-01-30T01:26:57Z",
+          "hostId": "7f8309c9467dc8324624f03e618431c21b3c81674cb9cc784287ff59",
+          "OS-SRV-USG:terminated_at": null,
+          "key_name": "dmr",
+          "properties": "",
+          "OS-EXT-AZ:availability_zone": "nova",
+          "name": "albert",
+          "created": "2018-01-30T01:26:21Z"
+        }
+
+# -----------------------------------------------------
+# Allocate a floating IP address.
+#[root@container]
+
+    openstack \
+        floating ip list \
+        --format json \
+      | tee 'floating-list.json' \
+      | jq '.'
+
+        []
+
+    openstack \
+        floating ip create \
+        --format json \
+        "${floatexternal:?}" \
+      | tee 'floating-ip-create.json' \
+      | jq '.'
+
+        {
+          "router_id": null,
+          "status": "DOWN",
+          "description": "",
+          "created_at": "2018-01-30T02:04:47Z",
+          "updated_at": "2018-01-30T02:04:47Z",
+          "floating_network_id": "d1e55e07-6f28-4d98-8116-e11ca10c3e8f",
+          "fixed_ip_address": null,
+          "floating_ip_address": "129.215.193.82",
+          "revision_number": 1,
+          "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+          "port_id": null,
+          "id": "e47c9fd6-3c7d-4d61-93a8-1a00af43b880",
+          "name": "129.215.193.82"
+        }
+
+    floatingip=$(
+        jq -r '
+            .floating_ip_address
+            ' \
+            'floating-ip-create.json'
+        )
+
+# -----------------------------------------------------
+# Add our IP address to our instance.
+#[root@container]
+
+    openstack \
+        server add floating ip \
+        "${serverid:?}" \
+        "${floatingip:?}"
+
+    openstack \
+        floating ip list \
+        --format json \
+      | tee 'floating-list.json' \
+      | jq '.'
+
+        [
+          {
+            "Project": "fcef6dd450f64a1ab4ffa5a7234c4161",
+            "Fixed IP Address": "192.168.2.12",
+            "Port": "97aaf197-5058-4b32-ba46-a0c70473c2c6",
+            "Floating Network": "d1e55e07-6f28-4d98-8116-e11ca10c3e8f",
+            "ID": "e47c9fd6-3c7d-4d61-93a8-1a00af43b880",
+            "Floating IP Address": "129.215.193.82"
+          }
+        ]
+
+# -----------------------------------------------------
+# Test the IP address.
+#[root@container]
+
+    dnf \
+        install -y \
+        openssh-clients
+
+    ssh "Stevedore@${floatingip:?}"
+
+# -----------------------------------------------------
+# Check the network config.
+#[user@virtual]
+
+    ifconfig
+
+        docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+                inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+                ether 02:42:54:aa:be:77  txqueuelen 0  (Ethernet)
+                RX packets 0  bytes 0 (0.0 B)
+                RX errors 0  dropped 0  overruns 0  frame 0
+                TX packets 0  bytes 0 (0.0 B)
+                TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+        ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+                inet 192.168.2.12  netmask 255.255.255.0  broadcast 192.168.2.255
+                inet6 fe80::f816:3eff:fe75:f095  prefixlen 64  scopeid 0x20<link>
+                ether fa:16:3e:75:f0:95  txqueuelen 1000  (Ethernet)
+                RX packets 6651  bytes 18301483 (17.4 MiB)
+                RX errors 0  dropped 0  overruns 0  frame 0
+                TX packets 6120  bytes 456117 (445.4 KiB)
+                TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+        lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+                inet 127.0.0.1  netmask 255.0.0.0
+                inet6 ::1  prefixlen 128  scopeid 0x10<host>
+                loop  txqueuelen 1000  (Local Loopback)
+                RX packets 0  bytes 0 (0.0 B)
+                RX errors 0  dropped 0  overruns 0  frame 0
+                TX packets 0  bytes 0 (0.0 B)
+                TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+# -----------------------------------------------------
+# Check the external IP address.
+#[user@virtual]
+
+    curl --silent http://icanhazip.com/
+
+        129.215.193.82
+
+# -----------------------------------------------------
+# Stop (shutdown) our instance.
+#[root@container]
+
+    openstack \
+        server stop \
+        "${serverid:?}"
+
+# -----------------------------------------------------
+# Delete our instance.
+#[root@container]
+
+    openstack \
+        server delete \
+        "${serverid:?}"
+
+# -----------------------------------------------------
+# List our instances.
+#[root@container]
+
+    openstack \
+        server list \
+        --format json \
+      | jq '.'
+
+        []
+
+

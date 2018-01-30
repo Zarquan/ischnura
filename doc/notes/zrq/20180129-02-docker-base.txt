@@ -1,0 +1,71 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Build settings
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+    basecpu=4
+    basemem=4096
+    basesize=16G
+    basearch=x86_64
+
+    basever=27
+    basedate=$(date +%Y%m%d)
+    basedist=fedora-${basever:?}
+    basename=${basedist}-docker-base-${basedate:?}
+    basefile=${basename}.qcow
+
+#---------------------------------------------------------------------
+# Create a gzipped version of our image.
+#[user@trop03]
+
+    pushd $(mktemp -d)
+
+        virsh \
+            --connect "${connection:?}" \
+            vol-download \
+                --pool "${basepool:?}" \
+                "${basefile:?}" \
+                "${basefile:?}"
+
+        gzip \
+            "${basefile:?}"
+
+#---------------------------------------------------------------------
+# Push the compressed image to our webserver.
+#[user@trop03]
+
+        file "${basefile:?}.gz" 
+
+        rsync \
+            --stats \
+            --progress \
+            --human-readable \
+            "${basefile:?}.gz" \
+            "Zarquan@data.metagrid.co.uk:/var/local/websites/data/ischnura/base/${basefile:?}.gz"
+
+    popd
+
+
