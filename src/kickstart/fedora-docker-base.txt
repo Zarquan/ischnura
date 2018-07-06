@@ -147,12 +147,10 @@ systemctl enable cloud-init-local.service
 # https://docs.openstack.org/image-guide/fedora-image.html
 sed -i '
     /^system_info:/,/^$/ {
-        /^[[:space:]]\{2\}default_user:/,/^[[:space:]]\{2\}[[:alnum:]]/ {
-            /^[[:space:]]\{4\}/ {
-                s/name:.*$/name: Stevedore/
-                s/gecos:.*$/gecos: Docker deployer/
-                s/groups:.*$/groups: [wheel, adm, systemd-journal, users, docker]/
-                }
+        /^[[:space:]]*default_user:/,/^$/ {
+            s/^\([[:space:]]*name:\).*$/\1 Stevedore/
+            s/^\([[:space:]]*gecos:\).*$/\1 Docker deployer/
+            s/^\([[:space:]]*groups:\).*$/\1 [wheel, adm, systemd-journal, users, docker]/
             }
         }
     ' /etc/cloud/cloud.cfg
