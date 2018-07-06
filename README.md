@@ -1,4 +1,7 @@
-ischnura
-============
+KVM virtual machine deployment
 
-Tools to manage KVM virtual machines. 
+Named after the Ischnura genus of damselflies.
+https://en.wikipedia.org/wiki/Ischnura
+
+
+
