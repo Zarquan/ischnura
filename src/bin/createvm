@@ -458,7 +458,7 @@ EOF
         ed \
         --update "/domain/name" \
         --value  "${nodename:?}" \
-        --update "//interface[@type='network']/mac/@address" \
+        --update "//interface/mac[@address='unknown']/@address" \
         --value  "${nodemac:?}" \
         --update "//disk[@device='disk']/source/@file" \
         --value  "${volpath:?}" \
