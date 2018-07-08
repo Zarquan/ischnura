@@ -70,7 +70,8 @@ svn
 git
 mercurial
 
-# Text editors
+# Text tools
+jq
 sed
 vim
 nano
@@ -175,7 +176,7 @@ dnf -y config-manager \
 
 #
 # Update the cache.
-dnf -y makecache fast
+dnf -y makecache
 
 #
 # Install docker CE.
