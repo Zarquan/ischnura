@@ -1,0 +1,204 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    Physical machines
+
+          32 cores
+        128G memory
+        128G disc
+
+    Split into 16 vms
+
+           2 cores
+          8G memory
+          8G disc
+
+
+
+# -----------------------------------------------------
+# Check the avaiable disk space.
+#[user@desktop]
+
+    troplist=(
+        trop01
+        trop02
+        trop03
+        trop04
+        )
+
+    for trophost in "${troplist[@]}"
+        do
+            printf "\n---- ----"
+            printf "\nHost [%s]" "${trophost:?}"
+            printf "\nipv4 [%s]" "$(dig +short ${trophost:?}.roe.ac.uk)"
+            printf "\n\n"
+            ssh -o 'VisualHostKey=no' "${trophost:?}" \
+                "
+                df -h
+                "
+        done
+
+        ---- ----
+        Host [trop01]
+        ipv4 [129.215.175.96]
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/sda2        46G  8.2G   36G  19% /
+        udev             10M     0   10M   0% /dev
+        tmpfs            26G  1.9G   24G   8% /run
+        tmpfs            64G     0   64G   0% /dev/shm
+        tmpfs           5.0M     0  5.0M   0% /run/lock
+        tmpfs            64G     0   64G   0% /sys/fs/cgroup
+        /dev/sda1       190M  124K  190M   1% /boot/efi
+        /dev/sda6        65G  545M   61G   1% /home
+        /dev/sda5        92G   35G   53G  40% /var
+        /dev/sda4        14G  1.1G   12G   8% /tmp
+        /dev/sdc1       3.6T   68M  3.4T   1% /data2
+        /dev/sdb1       3.6T   30G  3.4T   1% /data1
+        tmpfs            13G     0   13G   0% /run/user/1005
+
+        ---- ----
+        Host [trop02]
+        ipv4 [129.215.175.97]
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/sda2        92G   63G   25G  73% /
+        udev             10M     0   10M   0% /dev
+        tmpfs            26G  1.7G   24G   7% /run
+        tmpfs            64G     0   64G   0% /dev/shm
+        tmpfs           5.0M     0  5.0M   0% /run/lock
+        tmpfs            64G     0   64G   0% /sys/fs/cgroup
+        /dev/sda1       511M  132K  511M   1% /boot/efi
+        /dev/sda5        65G  5.2G   56G   9% /var
+        /dev/sda4       9.1G  2.8G  5.9G  33% /tmp
+        /dev/sda6        53G   53M   50G   1% /home
+        /dev/sdc1       3.6T   68M  3.4T   1% /data2
+        /dev/sdb1       3.6T   74M  3.4T   1% /data1
+        tmpfs            13G     0   13G   0% /run/user/1005
+
+        ---- ----
+        Host [trop03]
+        ipv4 [129.215.175.98]
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        udev             63G     0   63G   0% /dev
+        tmpfs            13G  1.3G   12G  10% /run
+        /dev/sda2        92G  1.6G   86G   2% /
+        tmpfs            63G     0   63G   0% /dev/shm
+        tmpfs           5.0M     0  5.0M   0% /run/lock
+        tmpfs            63G     0   63G   0% /sys/fs/cgroup
+        /dev/sda1       511M  132K  511M   1% /boot/efi
+        /dev/sda4       9.1G  2.8G  5.8G  33% /tmp
+        /dev/sda6        53G  4.2G   46G   9% /home
+        /dev/sda5        65G  4.4G   57G   8% /var
+        /dev/sdc1       3.6T  2.6T  867G  76% /data2
+        /dev/sdb1       3.6T  8.9G  3.4T   1% /data1
+        tmpfs            13G     0   13G   0% /run/user/1005
+
+        ---- ----
+        Host [trop04]
+        ipv4 [129.215.175.99]
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/sda2        92G  766M   87G   1% /
+        udev             10M     0   10M   0% /dev
+        tmpfs            26G  1.4G   24G   6% /run
+        tmpfs            64G     0   64G   0% /dev/shm
+        tmpfs           5.0M     0  5.0M   0% /run/lock
+        tmpfs            64G     0   64G   0% /sys/fs/cgroup
+        /dev/sda1       511M  132K  511M   1% /boot/efi
+        /dev/sda4       9.1G  3.0G  5.7G  35% /tmp
+        /dev/sda5        65G  3.7G   58G   7% /var
+        /dev/sda6        53G  423M   50G   1% /home
+        /dev/sdb1       3.6T   68M  3.4T   1% /data1
+        /dev/sdc1       3.6T   68M  3.4T   1% /data2
+        tmpfs            13G     0   13G   0% /run/user/1005
+
+
+# -----------------------------------------------------
+# SSD partitions.
+#[user@desktop]
+
+    for trophost in "${troplist[@]}"
+        do
+            printf "\n---- ----"
+            printf "\nHost [%s]" "${trophost:?}"
+            printf "\nipv4 [%s]" "$(dig +short ${trophost:?}.roe.ac.uk)"
+            printf "\n\n"
+            ssh -o 'VisualHostKey=no' "${trophost:?}" \
+                "
+                df -h
+                " \
+            | sort | sed -n '
+                /\/dev\/sda[0-9]/p
+                '
+        done
+
+
+        ---- ----
+        Host [trop01]
+        ipv4 [129.215.175.96]
+
+        /dev/sda1       190M  124K  190M   1% /boot/efi
+        /dev/sda2        46G  8.2G   36G  19% /
+        /dev/sda4        14G  1.1G   12G   8% /tmp
+        /dev/sda5        92G   35G   53G  40% /var
+        /dev/sda6        65G  545M   61G   1% /home
+
+        ---- ----
+        Host [trop02]
+        ipv4 [129.215.175.97]
+
+        /dev/sda1       511M  132K  511M   1% /boot/efi
+        /dev/sda2        92G   63G   25G  73% /
+        /dev/sda4       9.1G  2.8G  5.9G  33% /tmp
+        /dev/sda5        65G  5.2G   56G   9% /var
+        /dev/sda6        53G   53M   50G   1% /home
+
+        ---- ----
+        Host [trop03]
+        ipv4 [129.215.175.98]
+
+        /dev/sda1       511M  132K  511M   1% /boot/efi
+        /dev/sda2        92G  1.6G   86G   2% /
+        /dev/sda4       9.1G  2.8G  5.8G  33% /tmp
+        /dev/sda5        65G  4.4G   57G   8% /var
+        /dev/sda6        53G  4.2G   46G   9% /home
+
+        ---- ----
+        Host [trop04]
+        ipv4 [129.215.175.99]
+
+        /dev/sda1       511M  132K  511M   1% /boot/efi
+        /dev/sda2        92G  766M   87G   1% /
+        /dev/sda4       9.1G  3.0G  5.7G  35% /tmp
+        /dev/sda5        65G  3.7G   58G   7% /var
+        /dev/sda6        53G  423M   50G   1% /home
+
+        #
+        # trop 01 is different
+        # trop 02,03,04 are the same
+        #
+
+
+
