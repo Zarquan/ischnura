@@ -122,9 +122,9 @@ virsh \
 readarray -t lines < <(
 tac "${tempdat}" |
 sed '
-    /^ Name/ d    
-    /^----/ d    
-    /^$/ d    
+    /^ Name/ d
+    /^----/ d
+    /^$/ d
     '
     )
 
@@ -231,7 +231,7 @@ then
     then
 
         #
-        # Check for active VM and kill it. 
+        # Check for active VM and kill it.
         nodestate=$(virsh --connect "${connection:?}" domstate "${domuuid:?}")
         case $nodestate in
             paused|running)
@@ -241,7 +241,7 @@ then
                     --connect "${connection:?}" \
                     destroy \
                         "${domuuid:?}"
-                ;;        
+                ;;
 
             *)
                 ;;
@@ -340,7 +340,7 @@ $(sed -n '
     /^#/ !{
         s/\(.*\)/  - \1/p
         }
-    ' ${HOME}/.ssh/authorized_keys 
+    ' ${HOME}/.ssh/authorized_keys
     )
 EOF
 
@@ -360,7 +360,7 @@ $(sed -n '
     /^#/ !{
         s/\(.*\)/      - \1/p
         }
-    ' ~/.ssh/authorized_keys 
+    ' ~/.ssh/authorized_keys
     )
 EOF
 
@@ -368,16 +368,16 @@ EOF
 # Wrap our metadata files in an ISO image.
 # https://linux.die.net/man/1/genisoimage
 
-        isofile=$(mktemp)
+    isofile=$(mktemp)
 
-        genisoimage \
-            -rock \
-            -quiet \
-            -joliet \
-            -volid 'cidata' \
-            -input-charset 'utf-8' \
-            -output "${isofile:?}" \
-            "${isotemp:?}"
+    genisoimage \
+        -rock \
+        -quiet \
+        -joliet \
+        -volid 'cidata' \
+        -input-charset 'utf-8' \
+        -output "${isofile:?}" \
+        "${isotemp:?}"
 
 #---------------------------------------------------------------------
 # Delete any existing ISO volume.
