@@ -43,7 +43,7 @@ fi
 : ${livepool:='live'}
 : ${initpool:='init'}
 : ${connection:='qemu:///system'}
-: ${machine:=$(hostname -s)}
+: ${thisname:=$(hostname -s)}
 
 #
 # Check the configuration data.
@@ -85,7 +85,7 @@ fi
 # Select the machine name.
 echo ""
 #echo "Available machine names"
-namelist=( $(cat "${machines:?}" | awk '{if ($1 == "'${machine:?}'") {print $2}}') )
+namelist=( $(cat "${machines:?}" | awk '{if ($1 == "'${thisname:?}'") {print $2}}') )
 for ((index = 0 ; index < ${#namelist[@]} ; index++))
 do
     echo "[$[index + 1]] ${namelist[$index]}"
@@ -191,7 +191,6 @@ echo "INFO : Disc name [${volname:?}]"
 echo "INFO : Disc size [${volsize:?}]"
 echo ""
 
-thisname=$(hostname -s)
 thisline=($(cat "${machines:?}" | awk '{if (($1 == "'${thisname:?}'") && ($2 == "'${nodename:?}'")) {print}}'))
 
 nodemac=${thisline[2]}
