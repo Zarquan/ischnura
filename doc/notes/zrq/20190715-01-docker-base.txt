@@ -1,0 +1,482 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2019 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Create the boot-scratch pool.
+# *virt-install needs this to create temp images.
+# *virt-install fails when it tries to create this itself.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    cat > /tmp/scratch.xml << 'EOF'
+<pool type="dir">
+  <name>boot-scratch</name>
+  <uuid/>
+  <target>
+    <path>/var/lib/libvirt/boot</path>
+  </target>
+</pool>
+EOF
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        pool-define \
+            /tmp/scratch.xml
+
+--START--
+Pool boot-scratch defined from /tmp/scratch.xml
+--END--
+
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        pool-build \
+            boot-scratch
+
+--START--
+Pool boot-scratch built
+--END--
+
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        pool-start \
+            boot-scratch
+
+--START--
+Pool boot-scratch started
+--END--
+
+
+#---------------------------------------------------------------------
+# Build settings
+#[user@trop03]
+
+    # Bug with Fedora 30, docker-ce is still not available yet.
+    # https://github.com/docker/for-linux/issues/600
+
+    source "${HOME}/ischnura.settings"
+
+    basecpu=4
+    basemem=4096
+    basesize=16G
+    basearch=x86_64
+
+    basever=29
+    basedate=$(date +%Y%m%d)
+    basedist=fedora-${basever:?}
+    basename=${basedist}-docker-base-${basedate:?}
+    basefile=${basename}.qcow
+    basegzip=${basefile}.gz
+
+    instfile=${basename}-inst.qcow
+
+    kickstartfile=fedora-docker-base.txt
+    kickstarthref=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/${kickstartfile:?}
+
+#---------------------------------------------------------------------
+# Delete any existing VM image.
+#[user@trop03]
+
+   virsh \
+       --connect "${libvirtcon:?}" \
+       undefine "${basename:?}"
+
+--START--
+error: failed to get domain 'fedora-29-docker-base-20190715'
+error: Domain not found: no domain with matching name 'fedora-29-docker-base-20190715'
+--END--
+
+
+#---------------------------------------------------------------------
+# Delete any existing volumes.
+#[user@trop03]
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${instfile:?}"
+
+--START--
+error: failed to get vol 'fedora-29-docker-base-20190715-inst.qcow'
+error: Storage volume not found: no storage vol with matching path 'fedora-29-docker-base-20190715-inst.qcow'
+--END--
+
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${basefile:?}"
+
+--START--
+Vol fedora-29-docker-base-20190715.qcow deleted
+--END--
+
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop03]
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${instfile:?}" \
+            "${basesize:?}" \
+            --format qcow2
+
+--START--
+Vol fedora-29-docker-base-20190715-inst.qcow created
+--END--
+
+
+#---------------------------------------------------------------------
+# Set a MAC address to match our DHCP range.
+#[user@trop03]
+
+    macaddress='06:00:AC:10:00:00'
+
+#---------------------------------------------------------------------
+# Create a new VM image by installing the Fedora boot image.
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+    virt-install \
+        --debug \
+        --noreboot \
+        --name       "${basename:?}" \
+        --disk       "vol=${basepool:?}/${instfile:?}" \
+        --vcpus      "${basecpu:?}" \
+        --memory     "${basemem:?}" \
+        --network    "network=bridged,mac=${macaddress:?}" \
+        --connect    "${libvirtcon:?}" \
+        --location   "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/${basever}/Server/${basearch}/os" \
+        --extra-args "inst.ks=${kickstarthref:?}"
+
+
+--START--
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:258) Launched with command line: /usr/share/virt-manager/virt-install --debug --noreboot --name fedora-29-docker-base-20190715 --disk vol=base/fedora-29-docker-base-20190715-inst.qcow --vcpus 4 --memory 4096 --network network=bridged,mac=06:00:AC:10:00:00 --connect qemu:///system --location https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/29/Server/x86_64/os --extra-args inst.ks=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/fedora-docker-base.txt
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:268) Requesting libvirt URI qemu:///system
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:272) Received libvirt URI qemu:///system
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:358) Requesting virt method 'default', hv type 'default'.
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:582) Received virt method 'kvm'
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:583) Hypervisor name is 'hvm'
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:270) Distilled --network options: ['network=bridged,mac=06:00:AC:10:00:00']
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:183) Distilled --disk options: ['vol=base/fedora-29-docker-base-20190715-inst.qcow']
+[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:1840) Parsed --disk volume as: pool=base vol=fedora-29-docker-base-20190715-inst.qcow
+....
+....
+
+[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:187) Removing /home/dmr/.cache/virt-manager/boot/virtinst-vmlinuz.eaqtjd
+[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:187) Removing /home/dmr/.cache/virt-manager/boot/virtinst-initrd.img.IIKguB
+[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:191) Removing volume 'virtinst-vmlinuz.eaqtjd'
+[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:191) Removing volume 'virtinst-initrd.img.IIKguB'
+[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (virt-install:732) Domain state after install: 1
+Domain installation still in progress. Waiting for installation to complete.
+Domain has shutdown. Continuing.
+Domain creation completed.
+You can restart your domain by running:
+  virsh --connect qemu:///system start fedora-29-docker-base-20190715
+--END--
+
+
+#---------------------------------------------------------------------
+# Check the file info.
+#[user@trop03]
+
+    instpath=$(
+        virsh \
+            --connect "${libvirtcon:?}" \
+            vol-path \
+                --pool "${basepool:?}" \
+                "${instfile:?}"
+                )
+
+    sudo \
+        qemu-img \
+            info \
+                "${instpath:?}"
+
+--START--
+image: /var/lib/libvirt/images/base/fedora-29-docker-base-20190715-inst.qcow
+file format: qcow2
+virtual size: 16G (17179869184 bytes)
+disk size: 2.5G
+cluster_size: 65536
+Format specific information:
+    compat: 0.10
+    refcount bits: 16
+--END--
+
+
+#---------------------------------------------------------------------
+# Create a compressed copy of the image.
+#[user@trop03]
+
+    tempfile=$(mktemp)
+    sudo \
+        qemu-img \
+            convert \
+                -c \
+                -O qcow2 \
+                "${instpath:?}" \
+                "${tempfile:?}"
+
+    qemu-img \
+        info \
+            "${tempfile:?}"
+
+--START--
+image: /tmp/tmp.QtWzEHbtnI
+file format: qcow2
+virtual size: 16G (17179869184 bytes)
+disk size: 1.0G
+cluster_size: 65536
+Format specific information:
+    compat: 1.1
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+--END--
+
+
+#---------------------------------------------------------------------
+# Delete the virtual machine.
+#[user@trop03]
+
+   virsh \
+       --connect "${libvirtcon:?}" \
+       undefine "${basename:?}"
+
+--START--
+Domain fedora-29-docker-base-20190715 has been undefined
+--END--
+
+
+#---------------------------------------------------------------------
+# Delete the uncompressed volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${instfile:?}"
+
+--START--
+Vol fedora-29-docker-base-20190715-inst.qcow deleted
+--END--
+
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${basefile:?}" \
+            "${basesize:?}" \
+            --format 'qcow2'
+
+--START--
+Vol fedora-29-docker-base-20190715.qcow created
+--END--
+
+
+#---------------------------------------------------------------------
+# Upload the compressed copy into the new volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${basefile:?}" \
+            "${tempfile:?}"
+
+
+#---------------------------------------------------------------------
+# Delete the temp file.
+#[user@desktop]
+
+    rm "${tempfile:?}"
+
+#---------------------------------------------------------------------
+# Create a test instance.
+#[user@trop03]
+
+    createvm
+
+--START--
+INFO : Node name [Umiawyth]
+INFO : Base name [fedora-29-docker-base-20190715.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+INFO : Disc name [Umiawyth.qcow]
+INFO : Disc size [16GiB]
+
+INFO : MAC  [06:00:AC:10:05:01]
+INFO : IPv4 [172.16.5.1]
+INFO : IPv6 []
+--END--
+
+
+    nodename=Umiawyth
+
+#---------------------------------------------------------------------
+# Remove old ssh keys for this machine.
+#[user@trop03]
+
+    ssh-keygen -f "/home/dmr/.ssh/known_hosts" -R "${nodename,,}"
+
+--START--
+# Host umiawyth found: line 96
+/home/dmr/.ssh/known_hosts updated.
+Original contents retained as /home/dmr/.ssh/known_hosts.old
+--END--
+
+    nodeipv4=$(host umiawyth | sed -n 's/.*has address \([^ ]\)/\1/p')
+
+    ssh-keygen -f "/home/dmr/.ssh/known_hosts" -R "${nodeipv4:?}"
+
+--START--
+# Host 172.16.5.1 found: line 97
+/home/dmr/.ssh/known_hosts updated.
+Original contents retained as /home/dmr/.ssh/known_hosts.old
+--END--
+
+
+#---------------------------------------------------------------------
+# Test login using identites that should work.
+#[user@trop03]
+
+    ssh "dmr@${nodename:?}" \
+        '
+        date
+        hostname
+        '
+
+--START--
+The authenticity of host 'umiawyth (172.16.5.1)' can't be established.
+ECDSA key fingerprint is SHA256:sO4iGawkEEqF35ooAqXcbzD49xexRoX/0P4OOtcCMvU.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added 'umiawyth,172.16.5.1' (ECDSA) to the list of known hosts.
+--END--
+
+--START--
+Mon 15 Jul 05:54:09 BST 2019
+Umiawyth
+--END--
+
+
+    ssh "Stevedore@${nodename:?}" \
+        '
+        date
+        hostname
+        '
+
+--START--
+Mon 15 Jul 05:54:44 BST 2019
+Umiawyth
+--END--
+
+
+#---------------------------------------------------------------------
+# Test login using identites that should NOT work.
+#[user@trop03]
+
+    ssh "root@${nodename:?}" \
+        '
+        date
+        hostname
+        '
+
+--START--
+Please login as the user "Stevedore" rather than the user "root".
+--END--
+
+
+    ssh "fedora@${nodename:?}" \
+        '
+        date
+        hostname
+        '
+
+--START--
+Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
+--END--
+
+
+#---------------------------------------------------------------------
+# Download a temp copy of our image.
+#[user@trop03]
+
+    tmpfile=$(mktemp)
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-download \
+            --pool "${basepool:?}" \
+            "${basefile:?}" \
+            "${tmpfile:?}"
+
+
+#---------------------------------------------------------------------
+# Push the image to our webserver.
+#[user@trop03]
+
+        rsync \
+            --stats \
+            --progress \
+            --human-readable \
+            "${tmpfile:?}" \
+            "Zarquan@data.metagrid.co.uk:/var/local/websites/data/ischnura/base/${basefile:?}"
+
+
+--START--
+Number of files: 1 (reg: 1)
+Number of created files: 1 (reg: 1)
+Number of regular files transferred: 1
+Total file size: 1.09G bytes
+Total transferred file size: 1.09G bytes
+Literal data: 1.09G bytes
+Matched data: 0 bytes
+File list size: 0
+File list generation time: 0.001 seconds
+File list transfer time: 0.000 seconds
+Total bytes sent: 1.09G
+Total bytes received: 34
+
+sent 1.09G bytes  received 34 bytes  94.85M bytes/sec
+total size is 1.09G  speedup is 1.00
+--END--
+
+
+
+
+
+
