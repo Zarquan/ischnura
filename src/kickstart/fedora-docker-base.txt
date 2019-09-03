@@ -27,7 +27,8 @@ install
 url  --mirrorlist "http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch"
 repo --name fedora
 repo --name updates
-repo --name docker --baseurl "https://download.docker.com/linux/fedora/$releasever/$basearch/stable"
+#epo --name docker --baseurl "https://download.docker.com/linux/fedora/$releasever/$basearch/stable"
+repo --name docker --baseurl "https://download.docker.com/linux/fedora/docker-ce.repo"
 
 zerombr
 bootloader --location=mbr --boot-drive=vda
@@ -106,8 +107,8 @@ ntp
 # Entropy source
 haveged
 
-# Docker tools
-#docker-engine
+# Docker
+docker-ce
 #docker-compose
 
 # Required for selinux-dockersock
@@ -133,7 +134,7 @@ systemctl enable cloud-init.service
 systemctl enable cloud-init-local.service
 
 #
-# Configure our cloud-init user account.
+# Configure our cloud-init user account (fails on some platforms).
 # https://docs.openstack.org/image-guide/fedora-image.html
 #cat >> /etc/cloud/cloud.cfg.d/10-users.cfg << 'EOF'
 ##cloud-config
@@ -172,18 +173,18 @@ sed -i '
     ' /etc/ssh/sshd_config
 
 #
-# Add the Docker CE repo.
-dnf -y config-manager \
-    --add-repo \
-    https://download.docker.com/linux/fedora/docker-ce.repo
+# Add the Docker CE repo (done above).
+#dnf -y config-manager \
+#    --add-repo \
+#    https://download.docker.com/linux/fedora/docker-ce.repo
 
 #
 # Update the cache.
-dnf -y makecache
+#dnf -y makecache
 
 #
-# Install docker CE.
-dnf -y install docker-ce
+# Install docker CE (done above).
+#dnf -y install docker-ce
 
 #
 # Install docker-compose from GitHub
