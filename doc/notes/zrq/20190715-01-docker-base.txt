@@ -43,9 +43,7 @@ EOF
         pool-define \
             /tmp/scratch.xml
 
---START--
-Pool boot-scratch defined from /tmp/scratch.xml
---END--
+    >   Pool boot-scratch defined from /tmp/scratch.xml
 
 
     virsh \
@@ -53,9 +51,7 @@ Pool boot-scratch defined from /tmp/scratch.xml
         pool-build \
             boot-scratch
 
---START--
-Pool boot-scratch built
---END--
+    >   Pool boot-scratch built
 
 
     virsh \
@@ -63,9 +59,7 @@ Pool boot-scratch built
         pool-start \
             boot-scratch
 
---START--
-Pool boot-scratch started
---END--
+    >   Pool boot-scratch started
 
 
 #---------------------------------------------------------------------
@@ -102,10 +96,8 @@ Pool boot-scratch started
        --connect "${libvirtcon:?}" \
        undefine "${basename:?}"
 
---START--
-error: failed to get domain 'fedora-29-docker-base-20190715'
-error: Domain not found: no domain with matching name 'fedora-29-docker-base-20190715'
---END--
+    >   error: failed to get domain 'fedora-29-docker-base-20190715'
+    >   error: Domain not found: no domain with matching name 'fedora-29-docker-base-20190715'
 
 
 #---------------------------------------------------------------------
@@ -118,10 +110,8 @@ error: Domain not found: no domain with matching name 'fedora-29-docker-base-201
             --pool "${basepool}" \
             "${instfile:?}"
 
---START--
-error: failed to get vol 'fedora-29-docker-base-20190715-inst.qcow'
-error: Storage volume not found: no storage vol with matching path 'fedora-29-docker-base-20190715-inst.qcow'
---END--
+    >   error: failed to get vol 'fedora-29-docker-base-20190715-inst.qcow'
+    >   error: Storage volume not found: no storage vol with matching path 'fedora-29-docker-base-20190715-inst.qcow'
 
 
     virsh \
@@ -130,9 +120,7 @@ error: Storage volume not found: no storage vol with matching path 'fedora-29-do
             --pool "${basepool}" \
             "${basefile:?}"
 
---START--
-Vol fedora-29-docker-base-20190715.qcow deleted
---END--
+    >   Vol fedora-29-docker-base-20190715.qcow deleted
 
 
 #---------------------------------------------------------------------
@@ -147,9 +135,7 @@ Vol fedora-29-docker-base-20190715.qcow deleted
             "${basesize:?}" \
             --format qcow2
 
---START--
-Vol fedora-29-docker-base-20190715-inst.qcow created
---END--
+    >   Vol fedora-29-docker-base-20190715-inst.qcow created
 
 
 #---------------------------------------------------------------------
@@ -177,30 +163,28 @@ Vol fedora-29-docker-base-20190715-inst.qcow created
         --extra-args "inst.ks=${kickstarthref:?}"
 
 
---START--
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:258) Launched with command line: /usr/share/virt-manager/virt-install --debug --noreboot --name fedora-29-docker-base-20190715 --disk vol=base/fedora-29-docker-base-20190715-inst.qcow --vcpus 4 --memory 4096 --network network=bridged,mac=06:00:AC:10:00:00 --connect qemu:///system --location https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/29/Server/x86_64/os --extra-args inst.ks=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/fedora-docker-base.txt
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:268) Requesting libvirt URI qemu:///system
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:272) Received libvirt URI qemu:///system
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:358) Requesting virt method 'default', hv type 'default'.
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:582) Received virt method 'kvm'
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:583) Hypervisor name is 'hvm'
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:270) Distilled --network options: ['network=bridged,mac=06:00:AC:10:00:00']
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:183) Distilled --disk options: ['vol=base/fedora-29-docker-base-20190715-inst.qcow']
-[Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:1840) Parsed --disk volume as: pool=base vol=fedora-29-docker-base-20190715-inst.qcow
-....
-....
-
-[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:187) Removing /home/dmr/.cache/virt-manager/boot/virtinst-vmlinuz.eaqtjd
-[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:187) Removing /home/dmr/.cache/virt-manager/boot/virtinst-initrd.img.IIKguB
-[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:191) Removing volume 'virtinst-vmlinuz.eaqtjd'
-[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:191) Removing volume 'virtinst-initrd.img.IIKguB'
-[Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (virt-install:732) Domain state after install: 1
-Domain installation still in progress. Waiting for installation to complete.
-Domain has shutdown. Continuing.
-Domain creation completed.
-You can restart your domain by running:
-  virsh --connect qemu:///system start fedora-29-docker-base-20190715
---END--
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:258) Launched with command line: /usr/share/virt-manager/virt-install --debug --noreboot --name fedora-29-docker-base-20190715 --disk vol=base/fedora-29-docker-base-20190715-inst.qcow --vcpus 4 --memory 4096 --network network=bridged,mac=06:00:AC:10:00:00 --connect qemu:///system --location https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/29/Server/x86_64/os --extra-args inst.ks=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/fedora-docker-base.txt
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:268) Requesting libvirt URI qemu:///system
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:272) Received libvirt URI qemu:///system
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:358) Requesting virt method 'default', hv type 'default'.
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:582) Received virt method 'kvm'
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:583) Hypervisor name is 'hvm'
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:270) Distilled --network options: ['network=bridged,mac=06:00:AC:10:00:00']
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (virt-install:183) Distilled --disk options: ['vol=base/fedora-29-docker-base-20190715-inst.qcow']
+    >   [Mon, 15 Jul 2019 05:23:03 virt-install 3719] DEBUG (cli:1840) Parsed --disk volume as: pool=base vol=fedora-29-docker-base-20190715-inst.qcow
+    >   ....
+    >   ....
+    >   
+    >   [Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:187) Removing /home/dmr/.cache/virt-manager/boot/virtinst-vmlinuz.eaqtjd
+    >   [Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:187) Removing /home/dmr/.cache/virt-manager/boot/virtinst-initrd.img.IIKguB
+    >   [Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:191) Removing volume 'virtinst-vmlinuz.eaqtjd'
+    >   [Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (installer:191) Removing volume 'virtinst-initrd.img.IIKguB'
+    >   [Mon, 15 Jul 2019 05:23:08 virt-install 3719] DEBUG (virt-install:732) Domain state after install: 1
+    >   Domain installation still in progress. Waiting for installation to complete.
+    >   Domain has shutdown. Continuing.
+    >   Domain creation completed.
+    >   You can restart your domain by running:
+    >     virsh --connect qemu:///system start fedora-29-docker-base-20190715
 
 
 #---------------------------------------------------------------------
@@ -220,16 +204,14 @@ You can restart your domain by running:
             info \
                 "${instpath:?}"
 
---START--
-image: /var/lib/libvirt/images/base/fedora-29-docker-base-20190715-inst.qcow
-file format: qcow2
-virtual size: 16G (17179869184 bytes)
-disk size: 2.5G
-cluster_size: 65536
-Format specific information:
-    compat: 0.10
-    refcount bits: 16
---END--
+    >   image: /var/lib/libvirt/images/base/fedora-29-docker-base-20190715-inst.qcow
+    >   file format: qcow2
+    >   virtual size: 16G (17179869184 bytes)
+    >   disk size: 2.5G
+    >   cluster_size: 65536
+    >   Format specific information:
+    >       compat: 0.10
+    >       refcount bits: 16
 
 
 #---------------------------------------------------------------------
@@ -249,18 +231,16 @@ Format specific information:
         info \
             "${tempfile:?}"
 
---START--
-image: /tmp/tmp.QtWzEHbtnI
-file format: qcow2
-virtual size: 16G (17179869184 bytes)
-disk size: 1.0G
-cluster_size: 65536
-Format specific information:
-    compat: 1.1
-    lazy refcounts: false
-    refcount bits: 16
-    corrupt: false
---END--
+    >   image: /tmp/tmp.QtWzEHbtnI
+    >   file format: qcow2
+    >   virtual size: 16G (17179869184 bytes)
+    >   disk size: 1.0G
+    >   cluster_size: 65536
+    >   Format specific information:
+    >       compat: 1.1
+    >       lazy refcounts: false
+    >       refcount bits: 16
+    >       corrupt: false
 
 
 #---------------------------------------------------------------------
@@ -271,9 +251,7 @@ Format specific information:
        --connect "${libvirtcon:?}" \
        undefine "${basename:?}"
 
---START--
-Domain fedora-29-docker-base-20190715 has been undefined
---END--
+    >   Domain fedora-29-docker-base-20190715 has been undefined
 
 
 #---------------------------------------------------------------------
@@ -286,9 +264,7 @@ Domain fedora-29-docker-base-20190715 has been undefined
             --pool "${basepool}" \
             "${instfile:?}"
 
---START--
-Vol fedora-29-docker-base-20190715-inst.qcow deleted
---END--
+    >   Vol fedora-29-docker-base-20190715-inst.qcow deleted
 
 
 #---------------------------------------------------------------------
@@ -303,9 +279,7 @@ Vol fedora-29-docker-base-20190715-inst.qcow deleted
             "${basesize:?}" \
             --format 'qcow2'
 
---START--
-Vol fedora-29-docker-base-20190715.qcow created
---END--
+    >   Vol fedora-29-docker-base-20190715.qcow created
 
 
 #---------------------------------------------------------------------
@@ -332,17 +306,15 @@ Vol fedora-29-docker-base-20190715.qcow created
 
     createvm
 
---START--
-INFO : Node name [Umiawyth]
-INFO : Base name [fedora-29-docker-base-20190715.qcow]
-INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
-INFO : Disc name [Umiawyth.qcow]
-INFO : Disc size [16GiB]
-
-INFO : MAC  [06:00:AC:10:05:01]
-INFO : IPv4 [172.16.5.1]
-INFO : IPv6 []
---END--
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-29-docker-base-20190715.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:01]
+    >   INFO : IPv4 [172.16.5.1]
+    >   INFO : IPv6 []
 
 
     nodename=Umiawyth
@@ -353,21 +325,17 @@ INFO : IPv6 []
 
     ssh-keygen -f "/home/dmr/.ssh/known_hosts" -R "${nodename,,}"
 
---START--
-# Host umiawyth found: line 96
-/home/dmr/.ssh/known_hosts updated.
-Original contents retained as /home/dmr/.ssh/known_hosts.old
---END--
+    >   # Host umiawyth found: line 96
+    >   /home/dmr/.ssh/known_hosts updated.
+    >   Original contents retained as /home/dmr/.ssh/known_hosts.old
 
     nodeipv4=$(host umiawyth | sed -n 's/.*has address \([^ ]\)/\1/p')
 
     ssh-keygen -f "/home/dmr/.ssh/known_hosts" -R "${nodeipv4:?}"
 
---START--
-# Host 172.16.5.1 found: line 97
-/home/dmr/.ssh/known_hosts updated.
-Original contents retained as /home/dmr/.ssh/known_hosts.old
---END--
+    >   # Host 172.16.5.1 found: line 97
+    >   /home/dmr/.ssh/known_hosts updated.
+    >   Original contents retained as /home/dmr/.ssh/known_hosts.old
 
 
 #---------------------------------------------------------------------
@@ -380,17 +348,13 @@ Original contents retained as /home/dmr/.ssh/known_hosts.old
         hostname
         '
 
---START--
-The authenticity of host 'umiawyth (172.16.5.1)' can't be established.
-ECDSA key fingerprint is SHA256:sO4iGawkEEqF35ooAqXcbzD49xexRoX/0P4OOtcCMvU.
-Are you sure you want to continue connecting (yes/no)? yes
-Warning: Permanently added 'umiawyth,172.16.5.1' (ECDSA) to the list of known hosts.
---END--
+    >   The authenticity of host 'umiawyth (172.16.5.1)' can't be established.
+    >   ECDSA key fingerprint is SHA256:sO4iGawkEEqF35ooAqXcbzD49xexRoX/0P4OOtcCMvU.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Warning: Permanently added 'umiawyth,172.16.5.1' (ECDSA) to the list of known hosts.
 
---START--
-Mon 15 Jul 05:54:09 BST 2019
-Umiawyth
---END--
+    >   Mon 15 Jul 05:54:09 BST 2019
+    >   Umiawyth
 
 
     ssh "Stevedore@${nodename:?}" \
@@ -399,10 +363,8 @@ Umiawyth
         hostname
         '
 
---START--
-Mon 15 Jul 05:54:44 BST 2019
-Umiawyth
---END--
+    >   Mon 15 Jul 05:54:44 BST 2019
+    >   Umiawyth
 
 
 #---------------------------------------------------------------------
@@ -415,9 +377,7 @@ Umiawyth
         hostname
         '
 
---START--
-Please login as the user "Stevedore" rather than the user "root".
---END--
+    >   Please login as the user "Stevedore" rather than the user "root".
 
 
     ssh "fedora@${nodename:?}" \
@@ -426,9 +386,7 @@ Please login as the user "Stevedore" rather than the user "root".
         hostname
         '
 
---START--
-Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
---END--
+    >   Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
 
 
 #---------------------------------------------------------------------
@@ -457,23 +415,21 @@ Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
             "Zarquan@data.metagrid.co.uk:/var/local/websites/data/ischnura/base/${basefile:?}"
 
 
---START--
-Number of files: 1 (reg: 1)
-Number of created files: 1 (reg: 1)
-Number of regular files transferred: 1
-Total file size: 1.09G bytes
-Total transferred file size: 1.09G bytes
-Literal data: 1.09G bytes
-Matched data: 0 bytes
-File list size: 0
-File list generation time: 0.001 seconds
-File list transfer time: 0.000 seconds
-Total bytes sent: 1.09G
-Total bytes received: 34
-
-sent 1.09G bytes  received 34 bytes  94.85M bytes/sec
-total size is 1.09G  speedup is 1.00
---END--
+    >   Number of files: 1 (reg: 1)
+    >   Number of created files: 1 (reg: 1)
+    >   Number of regular files transferred: 1
+    >   Total file size: 1.09G bytes
+    >   Total transferred file size: 1.09G bytes
+    >   Literal data: 1.09G bytes
+    >   Matched data: 0 bytes
+    >   File list size: 0
+    >   File list generation time: 0.001 seconds
+    >   File list transfer time: 0.000 seconds
+    >   Total bytes sent: 1.09G
+    >   Total bytes received: 34
+    >   
+    >   sent 1.09G bytes  received 34 bytes  94.85M bytes/sec
+    >   total size is 1.09G  speedup is 1.00
 
 
 
