@@ -31,7 +31,7 @@
 # *virt-install fails when it tries to create this itself.
 #[user@trop03]
 
-    source "${HOME}/libvirt.settings"
+    source "${HOME}/libvirt.env"
 
     cat > /tmp/scratch.xml << 'EOF'
 <pool type="dir">
@@ -83,17 +83,17 @@ EOF
     # Bug with Fedora 30, docker-ce is still not available yet.
     # https://github.com/docker/for-linux/issues/600
 
-    source "${HOME}/ischnura.settings"
+    source "${HOME}/ischnura.env"
 
     basecpu=4
     basemem=4096
-    basesize=16G
+    basesize=120G
     basearch=x86_64
 
-    basever=7.7
+    basever=7.7.1908
     basedate=$(date +%Y%m%d)
     basedist=centos-${basever:?}
-    basename=${basedist}-base-${basedate:?}
+    basename=${basedist}-${basedate:?}
     basefile=${basename}.qcow
     basegzip=${basefile}.gz
 
@@ -157,8 +157,7 @@ EOF
             --format qcow2
 
 --START--
-....
-....
+Vol centos-7.7.1908-20200417-inst.qcow created
 --END--
 
 
@@ -183,11 +182,20 @@ EOF
         --memory     "${basemem:?}" \
         --network    "network=bridged,mac=${macaddress:?}" \
         --connect    "${libvirtcon:?}" \
-        --location   "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/${basever}/Server/${basearch}/os" \
-        --extra-args "inst.ks=${kickstarthref:?}"
+        --location   "http://www.mirrorservice.org/sites/mirror.centos.org/${basever}/os/${basearch}/" \
+        --extra-args "ks=${kickstarthref:?}"
 
 
 --START--
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:258) Launched with command line: /usr/share/virt-manager/virt-install --debug --noreboot --name centos-7.7.1908-20200417 --disk vol=base/centos-7.7.1908-20200417-inst.qcow --vcpus 4 --memory 4096 --network network=bridged,mac=06:00:AC:10:00:00 --connect qemu:///system --location http://www.mirrorservice.org/sites/mirror.centos.org/7.7.1908/os/x86_64 --extra-args inst.ks=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/centos-base.txt
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:268) Requesting libvirt URI qemu:///system
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:272) Received libvirt URI qemu:///system
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:358) Requesting virt method 'default', hv type 'default'.
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:582) Received virt method 'kvm'
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:583) Hypervisor name is 'hvm'
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:270) Distilled --network options: ['network=bridged,mac=06:00:AC:10:00:00']
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:183) Distilled --disk options: ['vol=base/centos-7.7.1908-20200417-inst.qcow']
+[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:1840) Parsed --disk volume as: pool=base vol=centos-7.7.1908-20200417-inst.qcow
 ....
 ....
 --END--
