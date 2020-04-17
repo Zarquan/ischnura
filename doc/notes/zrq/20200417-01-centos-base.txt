@@ -1,0 +1,424 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+#---------------------------------------------------------------------
+# Create the boot-scratch pool.
+# *virt-install needs this to create temp images.
+# *virt-install fails when it tries to create this itself.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    cat > /tmp/scratch.xml << 'EOF'
+<pool type="dir">
+  <name>boot-scratch</name>
+  <uuid/>
+  <target>
+    <path>/var/lib/libvirt/boot</path>
+  </target>
+</pool>
+EOF
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        pool-define \
+            /tmp/scratch.xml
+
+--START--
+....
+....
+--END--
+
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        pool-build \
+            boot-scratch
+
+--START--
+....
+....
+--END--
+
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        pool-start \
+            boot-scratch
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Build settings
+#[user@trop03]
+
+    # Bug with Fedora 30, docker-ce is still not available yet.
+    # https://github.com/docker/for-linux/issues/600
+
+    source "${HOME}/ischnura.settings"
+
+    basecpu=4
+    basemem=4096
+    basesize=16G
+    basearch=x86_64
+
+    basever=7.7
+    basedate=$(date +%Y%m%d)
+    basedist=centos-${basever:?}
+    basename=${basedist}-base-${basedate:?}
+    basefile=${basename}.qcow
+    basegzip=${basefile}.gz
+
+    instfile=${basename}-inst.qcow
+
+    kickstartfile=centos-base.txt
+    kickstarthref=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/${kickstartfile:?}
+
+#---------------------------------------------------------------------
+# Delete any existing VM image.
+#[user@trop03]
+
+   virsh \
+       --connect "${libvirtcon:?}" \
+       undefine "${basename:?}"
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Delete any existing volumes.
+#[user@trop03]
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${instfile:?}"
+
+--START--
+....
+....
+--END--
+
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${basefile:?}"
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop03]
+
+    virsh \
+       --connect "${libvirtcon:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${instfile:?}" \
+            "${basesize:?}" \
+            --format qcow2
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Set a MAC address to match our DHCP range.
+#[user@trop03]
+
+    macaddress='06:00:AC:10:00:00'
+
+#---------------------------------------------------------------------
+# Create a new VM image by installing the CentOS boot image.
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+    virt-install \
+        --debug \
+        --noreboot \
+        --name       "${basename:?}" \
+        --disk       "vol=${basepool:?}/${instfile:?}" \
+        --vcpus      "${basecpu:?}" \
+        --memory     "${basemem:?}" \
+        --network    "network=bridged,mac=${macaddress:?}" \
+        --connect    "${libvirtcon:?}" \
+        --location   "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/${basever}/Server/${basearch}/os" \
+        --extra-args "inst.ks=${kickstarthref:?}"
+
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Check the file info.
+#[user@trop03]
+
+    instpath=$(
+        virsh \
+            --connect "${libvirtcon:?}" \
+            vol-path \
+                --pool "${basepool:?}" \
+                "${instfile:?}"
+                )
+
+    sudo \
+        qemu-img \
+            info \
+                "${instpath:?}"
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Create a compressed copy of the image.
+#[user@trop03]
+
+    tempfile=$(mktemp)
+    sudo \
+        qemu-img \
+            convert \
+                -c \
+                -O qcow2 \
+                "${instpath:?}" \
+                "${tempfile:?}"
+
+    qemu-img \
+        info \
+            "${tempfile:?}"
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Delete the virtual machine.
+#[user@trop03]
+
+   virsh \
+       --connect "${libvirtcon:?}" \
+       undefine "${basename:?}"
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Delete the uncompressed volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${instfile:?}"
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${basefile:?}" \
+            "${basesize:?}" \
+            --format 'qcow2'
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Upload the compressed copy into the new volume.
+#[user@trop03]
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${basefile:?}" \
+            "${tempfile:?}"
+
+
+#---------------------------------------------------------------------
+# Delete the temp file.
+#[user@desktop]
+
+    rm "${tempfile:?}"
+
+#---------------------------------------------------------------------
+# Create a test instance.
+#[user@trop03]
+
+    createvm
+
+--START--
+....
+....
+--END--
+
+
+    nodename=Umiawyth
+
+#---------------------------------------------------------------------
+# Remove old ssh keys for this machine.
+#[user@trop03]
+
+    ssh-keygen -f "/home/dmr/.ssh/known_hosts" -R "${nodename,,}"
+
+--START--
+....
+....
+--END--
+
+    nodeipv4=$(host umiawyth | sed -n 's/.*has address \([^ ]\)/\1/p')
+
+    ssh-keygen -f "/home/dmr/.ssh/known_hosts" -R "${nodeipv4:?}"
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Test login using identites that should work.
+#[user@trop03]
+
+    ssh "dmr@${nodename:?}" \
+        '
+        date
+        hostname
+        '
+
+--START--
+....
+....
+--END--
+
+
+    ssh "Stevedore@${nodename:?}" \
+        '
+        date
+        hostname
+        '
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Test login using identites that should NOT work.
+#[user@trop03]
+
+    ssh "root@${nodename:?}" \
+        '
+        date
+        hostname
+        '
+
+--START--
+....
+....
+--END--
+
+
+    ssh "fedora@${nodename:?}" \
+        '
+        date
+        hostname
+        '
+
+--START--
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Download a temp copy of our image.
+#[user@trop03]
+
+    tmpfile=$(mktemp)
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-download \
+            --pool "${basepool:?}" \
+            "${basefile:?}" \
+            "${tmpfile:?}"
+
+
+#---------------------------------------------------------------------
+# Push the image to our webserver.
+#[user@trop03]
+
+        rsync \
+            --stats \
+            --progress \
+            --human-readable \
+            "${tmpfile:?}" \
+            "Zarquan@data.metagrid.co.uk:/var/local/websites/data/ischnura/base/${basefile:?}"
+
+

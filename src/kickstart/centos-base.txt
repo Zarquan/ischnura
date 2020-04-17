@@ -1,0 +1,134 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+text
+skipx
+install
+
+url  --mirrorlist "http://mirrorlist.centos.org/?release=$releasever&arch=$basearch
+
+repo --name os
+
+zerombr
+bootloader --location=mbr --boot-drive=vda
+
+clearpart --all --initlabel
+partition /boot   --type ext4  --size 256  --label boot
+partition swap    --type swap  --size 1024 --label swap
+partition btrfs.1 --type btrfs --grow      --label system
+
+btrfs none --data single --label system btrfs.1
+btrfs /    --subvol --name root system
+
+network  --bootproto=dhcp --device=ens3 --ipv6=auto --activate
+network  --hostname=localhost.localdomain
+
+firstboot --disable
+
+selinux   --permissive
+firewall  --enable --ssh
+
+lang en_GB.UTF-8
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=703335#c11
+# https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/installation_guide/sect-kickstart-syntax#varlist-kickstart-timezone
+timezone Europe/London --utc
+
+#
+# Root user (disabled)
+rootpw --iscrypted $6$rhfed05N$22N1s4OvAjDFYFoclbBiDe4VCH0aoL2lkeJpP1sRYIuEYN2dNz6jX.HhqlSM9EHWjld8ngr2tIgksOiVWIHOh1
+
+shutdown
+
+%packages
+
+# OpenStack cloud-init
+# https://docs.openstack.org/image-guide/fedora-image.html
+acpid
+cloud-init
+cloud-utils-growpart
+
+# Developer tools
+svn
+git
+mercurial
+
+# Text tools
+jq
+sed
+vim
+nano
+gawk
+grep
+
+# Archive tools
+tar
+zip
+gzip
+
+# Data access
+wget
+curl
+
+# System admin
+sudo
+htop
+pwgen
+
+# Network admin
+iputils
+net-tools
+bind-utils
+
+# Time source
+ntp
+
+# Entropy source
+haveged
+
+%end
+
+%pre
+%end
+
+%post
+
+#
+# Disable the default zeroconf route.
+# https://docs.openstack.org/image-guide/fedora-image.html
+echo "NOZEROCONF=yes" >> /etc/sysconfig/network
+
+#
+# Disable password login.
+# http://redmine.roe.ac.uk/issues/1010
+sed -i '
+    s/^\(PasswordAuthentication\).*$/\1 no/
+    ' /etc/ssh/sshd_config
+
+#
+# Enable our services.
+systemctl enable ntpd
+systemctl enable acpid
+systemctl enable haveged
+
+%end
+
