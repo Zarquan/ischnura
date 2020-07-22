@@ -24,11 +24,11 @@ text
 skipx
 install
 
-#url --mirrorlist "http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch"
-url  --url "http://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/os/"
+url --mirrorlist "http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch"
+#url  --url "http://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/os/"
 repo --name fedora
 repo --name updates
-repo --name docker --baseurl "https://download.docker.com/linux/fedora/docker-ce.repo"
+repo --name docker-ce-stable --baseurl "https://download.docker.com/linux/fedora/docker-ce.repo"
 
 zerombr
 bootloader --location=mbr --boot-drive=vda
