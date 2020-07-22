@@ -24,10 +24,10 @@ text
 skipx
 install
 
-url  --mirrorlist "http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch"
+#url --mirrorlist "http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch"
+url  --url "http://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/os/"
 repo --name fedora
 repo --name updates
-#epo --name docker --baseurl "https://download.docker.com/linux/fedora/$releasever/$basearch/stable"
 repo --name docker --baseurl "https://download.docker.com/linux/fedora/docker-ce.repo"
 
 zerombr
@@ -109,7 +109,10 @@ haveged
 
 # Docker
 docker-ce
-#docker-compose
+
+# Podman
+podman
+buildah
 
 # Required for selinux-dockersock
 checkpolicy
@@ -173,22 +176,12 @@ sed -i '
     ' /etc/ssh/sshd_config
 
 #
-# Add the Docker CE repo (done above).
-#dnf -y config-manager \
-#    --add-repo \
-#    https://download.docker.com/linux/fedora/docker-ce.repo
-
-#
 # Update the cache.
 #dnf -y makecache
 
 #
-# Install docker CE (done above).
-#dnf -y install docker-ce
-
-#
 # Install docker-compose from GitHub
-curl -L -o '/usr/bin/docker-compose' "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)"
+curl -L -o '/usr/bin/docker-compose' "https://github.com/docker/compose/releases/download/1.26.2/docker-compose-$(uname -s)-$(uname -m)"
 chmod +x '/usr/bin/docker-compose'
 
 #
