@@ -18,11 +18,6 @@
 #   </meta:licence>
 # </meta:header>
 #
-#zrq-notes-time
-#zrq-notes-indent
-#zrq-notes-crypto
-#zrq-notes-ansible
-#zrq-notes-osformat
 #
 
 #---------------------------------------------------------------------
@@ -48,10 +43,8 @@ EOF
         pool-define \
             /tmp/scratch.xml
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
     virsh \
@@ -59,10 +52,8 @@ EOF
         pool-build \
             boot-scratch
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
     virsh \
@@ -70,10 +61,8 @@ EOF
         pool-start \
             boot-scratch
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -110,10 +99,8 @@ EOF
        --connect "${libvirtcon:?}" \
        undefine "${basename:?}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -126,10 +113,8 @@ EOF
             --pool "${basepool}" \
             "${instfile:?}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
     virsh \
@@ -138,10 +123,8 @@ EOF
             --pool "${basepool}" \
             "${basefile:?}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -156,9 +139,7 @@ EOF
             "${basesize:?}" \
             --format qcow2
 
---START--
-Vol centos-7.7.1908-20200417-inst.qcow created
---END--
+    >   Vol centos-7.7.1908-20200417-inst.qcow created
 
 
 #---------------------------------------------------------------------
@@ -186,19 +167,17 @@ Vol centos-7.7.1908-20200417-inst.qcow created
         --extra-args "ks=${kickstarthref:?}"
 
 
---START--
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:258) Launched with command line: /usr/share/virt-manager/virt-install --debug --noreboot --name centos-7.7.1908-20200417 --disk vol=base/centos-7.7.1908-20200417-inst.qcow --vcpus 4 --memory 4096 --network network=bridged,mac=06:00:AC:10:00:00 --connect qemu:///system --location http://www.mirrorservice.org/sites/mirror.centos.org/7.7.1908/os/x86_64 --extra-args inst.ks=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/centos-base.txt
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:268) Requesting libvirt URI qemu:///system
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:272) Received libvirt URI qemu:///system
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:358) Requesting virt method 'default', hv type 'default'.
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:582) Received virt method 'kvm'
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:583) Hypervisor name is 'hvm'
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:270) Distilled --network options: ['network=bridged,mac=06:00:AC:10:00:00']
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:183) Distilled --disk options: ['vol=base/centos-7.7.1908-20200417-inst.qcow']
-[Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:1840) Parsed --disk volume as: pool=base vol=centos-7.7.1908-20200417-inst.qcow
-....
-....
---END--
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:258) Launched with command line: /usr/share/virt-manager/virt-install --debug --noreboot --name centos-7.7.1908-20200417 --disk vol=base/centos-7.7.1908-20200417-inst.qcow --vcpus 4 --memory 4096 --network network=bridged,mac=06:00:AC:10:00:00 --connect qemu:///system --location http://www.mirrorservice.org/sites/mirror.centos.org/7.7.1908/os/x86_64 --extra-args inst.ks=https://raw.githubusercontent.com/Zarquan/ischnura/master/src/kickstart/centos-base.txt
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:268) Requesting libvirt URI qemu:///system
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:272) Received libvirt URI qemu:///system
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:358) Requesting virt method 'default', hv type 'default'.
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:582) Received virt method 'kvm'
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:583) Hypervisor name is 'hvm'
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:270) Distilled --network options: ['network=bridged,mac=06:00:AC:10:00:00']
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (virt-install:183) Distilled --disk options: ['vol=base/centos-7.7.1908-20200417-inst.qcow']
+    >   [Fri, 17 Apr 2020 14:55:37 virt-install 29260] DEBUG (cli:1840) Parsed --disk volume as: pool=base vol=centos-7.7.1908-20200417-inst.qcow
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -218,10 +197,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
             info \
                 "${instpath:?}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -241,10 +218,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
         info \
             "${tempfile:?}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -255,10 +230,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
        --connect "${libvirtcon:?}" \
        undefine "${basename:?}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -271,10 +244,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
             --pool "${basepool}" \
             "${instfile:?}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -289,10 +260,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
             "${basesize:?}" \
             --format 'qcow2'
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -319,10 +288,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
 
     createvm
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
     nodename=Umiawyth
@@ -333,19 +300,15 @@ Vol centos-7.7.1908-20200417-inst.qcow created
 
     ssh-keygen -f "/home/dmr/.ssh/known_hosts" -R "${nodename,,}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
     nodeipv4=$(host umiawyth | sed -n 's/.*has address \([^ ]\)/\1/p')
 
     ssh-keygen -f "/home/dmr/.ssh/known_hosts" -R "${nodeipv4:?}"
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -358,10 +321,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
         hostname
         '
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
     ssh "Stevedore@${nodename:?}" \
@@ -370,10 +331,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
         hostname
         '
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------
@@ -386,10 +345,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
         hostname
         '
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
     ssh "fedora@${nodename:?}" \
@@ -398,10 +355,8 @@ Vol centos-7.7.1908-20200417-inst.qcow created
         hostname
         '
 
---START--
-....
-....
---END--
+    >   ....
+    >   ....
 
 
 #---------------------------------------------------------------------

@@ -20,6 +20,19 @@
 #
 #
 
+    # Original plan was to update to Fedora 32 and increase disc size to 32G.
+    # Encountered issues with Docker CE on Fedora.
+    # https://computingforgeeks.com/how-to-install-docker-on-fedora/
+
+    # We are half way between Docker and Podman.
+    # Docker CE doesn't have a YUM repo for Fedora 32.
+    # Build scripts assume running Docker build from inside builder container.
+    # Nested Podman isn't available yet (work in progress).
+
+    # TODO Need to migrate our build process to use Podman.
+    # TODO Need to update firethorn deployment to use Podman.
+
+
 #---------------------------------------------------------------------
 # Build settings
 #[user@trop03]
@@ -279,14 +292,16 @@ You can restart your domain by running:
             info \
                 "${instpath:?}"
 
-    >   image: /var/lib/libvirt/images/base/fedora-30-docker-base-20190903-inst.qcow
-    >   file format: qcow2
-    >   virtual size: 16G (17179869184 bytes)
-    >   disk size: 2.9G
-    >   cluster_size: 65536
-    >   Format specific information:
-    >       compat: 0.10
-    >       refcount bits: 16
+--START--
+image: /var/lib/libvirt/images/base/fedora-31-docker-base-20200722-inst.qcow
+file format: qcow2
+virtual size: 32G (34359738368 bytes)
+disk size: 2.2G
+cluster_size: 65536
+Format specific information:
+    compat: 0.10
+    refcount bits: 16
+--END--
 
 
 #---------------------------------------------------------------------
@@ -306,16 +321,18 @@ You can restart your domain by running:
         info \
             "${tempfile:?}"
 
-    >   image: /tmp/tmp.zhxeJdHc3T
-    >   file format: qcow2
-    >   virtual size: 16G (17179869184 bytes)
-    >   disk size: 1.1G
-    >   cluster_size: 65536
-    >   Format specific information:
-    >       compat: 1.1
-    >       lazy refcounts: false
-    >       refcount bits: 16
-    >       corrupt: false
+--START--
+image: /tmp/tmp.xnWZZNqZyI
+file format: qcow2
+virtual size: 32G (34359738368 bytes)
+disk size: 1.0G
+cluster_size: 65536
+Format specific information:
+    compat: 1.1
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+--END--
 
 
 #---------------------------------------------------------------------
@@ -326,7 +343,9 @@ You can restart your domain by running:
        --connect "${libvirtcon:?}" \
        undefine "${basename:?}"
 
-    >   Domain fedora-30-docker-base-20190903 has been undefined
+--START--
+Domain fedora-31-docker-base-20200722 has been undefined
+--END--
 
 
 #---------------------------------------------------------------------
@@ -339,7 +358,9 @@ You can restart your domain by running:
             --pool "${basepool}" \
             "${instfile:?}"
 
-    >   Vol fedora-30-docker-base-20190903-inst.qcow deleted
+--START--
+Vol fedora-31-docker-base-20200722-inst.qcow deleted
+--END--
 
 
 #---------------------------------------------------------------------
@@ -354,7 +375,9 @@ You can restart your domain by running:
             "${basesize:?}" \
             --format 'qcow2'
 
-    >   Vol fedora-30-docker-base-20190903.qcow created
+--START--
+Vol fedora-31-docker-base-20200722.qcow created
+--END--
 
 
 #---------------------------------------------------------------------
@@ -368,7 +391,6 @@ You can restart your domain by running:
             "${basefile:?}" \
             "${tempfile:?}"
 
-
 #---------------------------------------------------------------------
 # Delete the temp file.
 #[user@desktop]
@@ -381,15 +403,15 @@ You can restart your domain by running:
 
     createvm
 
-    >   INFO : Node name [Umiawyth]
-    >   INFO : Base name [fedora-30-docker-base-20190903.qcow]
-    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-30-docker-base-20190903.qcow]
-    >   INFO : Disc name [Umiawyth.qcow]
-    >   INFO : Disc size [16GiB]
-    >
-    >   INFO : MAC  [06:00:AC:10:05:01]
-    >   INFO : IPv4 [172.16.5.1]
-    >   INFO : IPv6 []
+--START--
+....
+INFO : Node name [Umiawyth]
+INFO : Base name [fedora-31-docker-base-20200722.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-31-docker-base-20200722.qcow]
+INFO : Disc name [Umiawyth.qcow]
+INFO : Disc size [32GiB]
+....
+--END--
 
     nodename=Umiawyth
 
@@ -423,13 +445,17 @@ You can restart your domain by running:
         hostname
         '
 
-    >   The authenticity of host 'umiawyth (172.16.5.1)' can't be established.
-    >   ECDSA key fingerprint is SHA256:mWZN1u3GTfhSwz+qI0nAs8dcWxOxu6TBxEP0T3HgYSw.
-    >   Are you sure you want to continue connecting (yes/no)? yes
-    >   Warning: Permanently added 'umiawyth,172.16.5.1' (ECDSA) to the list of known hosts.
+--START--
+The authenticity of host 'umiawyth (172.16.5.1)' can't be established.
+ECDSA key fingerprint is SHA256:9UfehJ7VbbISgu8/CjuUDekZ2LCeScSCB1wlp0tiZP4.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added 'umiawyth,172.16.5.1' (ECDSA) to the list of known hosts.
+--END--
 
-    >   Tue  3 Sep 14:49:59 BST 2019
-    >   Umiawyth
+--START--
+Wed 22 Jul 07:09:07 BST 2020
+Umiawyth
+--END--
 
 
     ssh "Stevedore@${nodename:?}" \
@@ -438,8 +464,10 @@ You can restart your domain by running:
         hostname
         '
 
-    >   Tue  3 Sep 14:50:18 BST 2019
-    >   Umiawyth
+--START--
+Wed 22 Jul 07:09:34 BST 2020
+Umiawyth
+--END--
 
 
 #---------------------------------------------------------------------
@@ -490,23 +518,21 @@ You can restart your domain by running:
             "Zarquan@data.metagrid.co.uk:/var/local/websites/data/ischnura/base/${basefile:?}"
 
 
-    >   tmp.WU2ZGLexTc
-    >             1.23G 100%  103.16MB/s    0:00:11 (xfr#1, to-chk=0/1)
-    >
-    >   Number of files: 1 (reg: 1)
-    >   Number of created files: 1 (reg: 1)
-    >   Number of regular files transferred: 1
-    >   Total file size: 1.23G bytes
-    >   Total transferred file size: 1.23G bytes
-    >   Literal data: 1.23G bytes
-    >   Matched data: 0 bytes
-    >   File list size: 0
-    >   File list generation time: 0.001 seconds
-    >   File list transfer time: 0.000 seconds
-    >   Total bytes sent: 1.23G
-    >   Total bytes received: 34
-    >
-    >   sent 1.23G bytes  received 34 bytes  62.93M bytes/sec
-    >   total size is 1.23G  speedup is 1.00
+--START--
+Number of files: 1 (reg: 1)
+Number of created files: 1 (reg: 1)
+Number of regular files transferred: 1
+Total file size: 1.09G bytes
+Total transferred file size: 1.09G bytes
+Literal data: 1.09G bytes
+Matched data: 0 bytes
+File list size: 0
+File list generation time: 0.001 seconds
+File list transfer time: 0.000 seconds
+Total bytes sent: 1.09G
+Total bytes received: 34
 
+sent 1.09G bytes  received 34 bytes  3.28M bytes/sec
+total size is 1.09G  speedup is 1.00
+--END--
 
